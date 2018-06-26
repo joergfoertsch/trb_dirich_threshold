@@ -6,6 +6,8 @@ The boost libraries are assumed to be in the /lib
 ROOT and trbnet should be filled in the Makefile: TRBNETDIR, ROOTDIR.
 The current setting of both of these varibles forsees a compilation on lxhadeb06 as hadaq
 
+
+Before using the program you need to set the correct LD_LIBRARY_PATH via ". setLD"
 The usage of the program can be seen by using the --help /-h command
 Examples of standard tasks are:
 

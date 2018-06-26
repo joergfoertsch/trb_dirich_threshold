@@ -861,14 +861,6 @@ void save(){
   save_graphs(NULL,str);
 }
 
-void* scanthread_baseline(void* dirichptr) //Argument is pointer to DiRICH class instance
-{
-  TThread::Printf("Starting baseline for Dirich at address 0x%x",((dirich*)dirichptr)->GetBoardAddress());
-	((dirich*)dirichptr)->DoBaselineScan();
-  TThread::Printf("Threshold scan for Dirich at address 0x%x done ! ",((dirich*)dirichptr)->GetBoardAddress()); 
-  return 0;
-}
-
 void* scanthread_nrml(void* dirichptr) //Argument is pointer to DiRICH class instance
 {
   if(((dirich*)dirichptr)->gdirich_reporting_level>=1) TThread::Printf("Starting threshscan for Dirich at address 0x%x",((dirich*)dirichptr)->GetBoardAddress());
@@ -896,90 +888,6 @@ void* scanthread_over(void* dirichptr) //Argument is pointer to DiRICH class ins
   TThread::Printf("Threshold scan for Dirich at address 0x%x done ! ",((dirich*)dirichptr)->GetBoardAddress()); 
   return 0;
 }
-
-void* scanthread_thr(void* dirichptr) //Argument is pointer to DiRICH class instance
-{
-  TThread::Printf("Starting threshsearch for Dirich at address 0x%x",((dirich*)dirichptr)->GetBoardAddress());
-  ((dirich*)dirichptr)->DoThreshSearch();
-  TThread::Printf("Threshold search for Dirich at address 0x%x done ! ",((dirich*)dirichptr)->GetBoardAddress()); 
-  return 0;
-}
-
-// void* scanthread_std(void* dirichptr) //Argument is pointer to DiRICH class instance
-// {
-//   TThread::Printf("Starting threshscan for Dirich at address 0x%x",((dirich*)dirichptr)->GetBoardAddress());
-// 	((dirich*)dirichptr)->DoThreshScan();
-//   // ((dirich*)dirichptr)->MakeDiffGraphsOverBase();
-//   TThread::Printf("Threshold scan for Dirich at address 0x%x done ! ",((dirich*)dirichptr)->GetBoardAddress()); 
-//   return 0;
-// }
-
-// void single_thr_scan(int type=0, std::shared_ptr<dirich>  dirich_to_scan=NULL){
-// 	int ret=0;
-// 	if(dirich_to_scan==NULL){
-//     std::cerr << "DiRICH not initialized!" << std::endl;
-//     return;
-//   } 
-
-//   uint32_t TDC_setting[2];
-//   ret=trb_register_read(dirich_to_scan->GetBoardAddress(), 0xc802, TDC_setting, 2); //switch off TDC
-//   if(ret==-1){
-//     std::cerr << "Reading TDCs status failed for dirich " << std::hex << dirich_to_scan->GetBoardAddress() << std::dec << " -> TDC for that dirich will be left switched off" << std::endl;
-//   }
-
-//   ret=trb_register_write(dirich_to_scan->GetBoardAddress(), 0xc802, 0x00000000); //switch off TDC
-//   if(ret==-1){
-//     std::cerr << "Switching off TDCs failed for dirich " << std::hex << dirich_to_scan->GetBoardAddress() << std::dec << " -> Interupting baselinescan" << std::endl;
-//     // return;
-//   }
-
-// 	TThread* thread;
-//   switch(type){
-//   case 1:
-//   	thread = new TThread(Form("Thread_%i",(int)dirich_to_scan->GetBoardAddress()), scanthread_baseline, (void*) dirich_to_scan);
-//   	break;
-//   case 2:
-//   	thread = new TThread(Form("Thread_%i",(int)dirich_to_scan->GetBoardAddress()), scanthread_thr, (void*) dirich_to_scan);
-//   	break;
-//   case 3:
-//   	thread = new TThread(Form("Thread_%i",(int)dirich_to_scan->GetBoardAddress()), scanthread_over, (void*) dirich_to_scan);
-//   	break;
-//   case 0:
-//   default:
-//   	thread = new TThread(Form("Thread_%i",(int)dirich_to_scan->GetBoardAddress()), scanthread_nrml, (void*) dirich_to_scan);
-//   	break;
-//   }
-//   usleep(1000);
-//   thread->Run(); 
-//   printf("Waiting: \n");
-// 	usleep(1000);
-  
-//   thread->Join();
-//   thread->Delete();
-
-//   printf("System scan done ! \n");
-//   switch(type){
-//   case 1:
-//     save();
-//   	break;
-//   case 2:
-//     save();
-//   	break;
-//   case 3:
-//     save();
-//   	break;    	
-//   case 0:
-//   default:
-//   	save();
-//   	break;
-//   }
-
-//   ret=trb_register_write(dirich_to_scan->GetBoardAddress(), 0xc802, TDC_setting[1]);
-//   if(ret==-1){
-//     std::cerr << "Switching on TDCs failed for dirich: " << std::hex << dirich_to_scan->GetBoardAddress() << std::dec << std::endl;
-//   }
-
-// }
 
 void system_thr_scan(int type=0)
 {
@@ -1032,12 +940,6 @@ void system_thr_scan(int type=0)
       continue;
     }    
     switch(type){
-    case 1:
-    	threadlist.push_back(new TThread(Form("Thread_%i",(int)dirichlistitem.first), scanthread_baseline, (void*) dirichlistitem.second.get()));
-    	break;
-    case 2:
-    	threadlist.push_back(new TThread(Form("Thread_%i",(int)dirichlistitem.first), scanthread_thr, (void*) dirichlistitem.second.get()));
-    	break;
     case 3:
     	threadlist.push_back(new TThread(Form("Thread_%i",(int)dirichlistitem.first), scanthread_over, (void*) dirichlistitem.second.get()));
     	break;
@@ -1062,11 +964,6 @@ void system_thr_scan(int type=0)
   // threadlist.clear();
   printf("System scan done ! \n");
   switch(type){
-  case 1:
-    save();
-  	break;
-  case 2:
-  	break;
   case 3:
     save();
   	break;    	

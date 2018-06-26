@@ -889,9 +889,10 @@ void dirich::DoThreshScan(uint8_t FirstChannel, uint8_t LastChannel, std::array<
   // std::cout << "Set0" << std::endl;
 
   if(clear_graph==1){
-    for (int ichannel=0; ichannel<NRCHANNELS; ichannel++)
+    for (int ichannel=0; ichannel<NRCHANNELS; ichannel++){
       gRateGraphs[ichannel]->Set(0);
       gRateGraphsOverBase[ichannel]->Set(0);
+    }
   }
 
   for(int ipass=0;ipass<NrPasses;++ipass){
@@ -947,7 +948,11 @@ void dirich::DoThreshScanOverBase(){
     std::cerr << "dirich 0x" << std::hex << gBoardAddress << std::dec << " has no baseline yet. Please load or scan one (load_base, system_thr_scan)" << std::endl;
     return;
   }
-  DoThreshScanOverBase(0, NRCHANNELS, gLowerEdge_over, gUpperEdge_over, gMeasureTime_over, gStepsize_over, gNrPasses_over);
+  std::array<double, NRCHANNELS> UpperEdge_over_array; 
+  for(auto& UpperEdge_over_array_element : UpperEdge_over_array){
+    UpperEdge_over_array_element=gUpperEdge_over;
+  }
+  DoThreshScanOverBase(0, NRCHANNELS, UpperEdge_over_array, gMeasureTime_over, gStepsize_over, gNrPasses_over);
   // DoThreshScanOverBase(0, NRCHANNELS, Thr_DtomV(gUpperEdge-*min_element(fbaseline.begin(),fbaseline.end(),find_min_wo_zero)), gMeasureTime, Thr_DtomV(gStepsize), gNrPasses);
   // std::cout << "minimal baseline = " << *min_element(fbaseline.begin(),fbaseline.end(),find_min_wo_zero) << std::endl;
 }

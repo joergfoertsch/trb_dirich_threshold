@@ -1,0 +1,1 @@
+export LD_LIBRARY_PATH=/cvmfs/hades.gsi.de/install/root-5.34.34/lib:/home/hadaq/git/trbnettools/trbnetd/

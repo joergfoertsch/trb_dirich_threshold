@@ -142,7 +142,7 @@ public:
   void DoThreshSearch         ( );
   void DoThreshSearch         ( double Perc, bool SPP_SPV /*1==SPP*/, double MeasureTime, int16_t StepSize, int NrPasses);
   void DoThreshScanOverBase   ( );
-  void DoThreshScanOverBase   ( uint8_t FirstChannel, uint8_t LastChannel, double FromThrmV, double ToThrmV, double MeasureTime, double StepSize, int NrPasses);
+  void DoThreshScanOverBase   ( uint8_t FirstChannel, uint8_t LastChannel, std::array<double,NRCHANNELS> ToThrmV, double MeasureTime, double StepSize, int NrPasses);
   void MakeGraphsOverBase     ( );
   void MakeGraphsOverBase     ( uint16_t ToThr);
   void MakeDiffGraphsOverBase ( );

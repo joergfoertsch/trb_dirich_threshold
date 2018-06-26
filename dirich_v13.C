@@ -850,159 +850,6 @@ double* dirich::GetRates(double delay)
   }
 }
 
-void dirich::DoBaselineScan(){
-	DoBaselineScan(50000, 250, .3, 1);
-}
-void dirich::DoBaselineScan(uint32_t SearchedNoise, uint16_t StartStepSize, double MeasureTime, int NrPasses)
-{
-  for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
-    gRateGraphs[ichannel]->Set(0);
-  }  
-  int ret=0;
-  if(fjans_readout){
-    uint32_t scaler_switch[] = {0xffffffff};
-    TRBAccessMutex.Lock();
-    ret=trb_register_write_mem(gBoardAddress,0xdf80,0,scaler_switch,1); //switching on scaler for this dirich .... only needed when using jan's readout
-    TRBAccessMutex.UnLock();
-    if(ret<0) std::cerr << "Error switching on scalers" << std::endl;
-  }
-
-  int number_of_checks=2;
-
-  std::array<uint16_t, NRCHANNELS> low_edge;
-  low_edge.fill(0);
-  std::array<uint16_t, NRCHANNELS> high_edge;
-  high_edge.fill(0);  
-
-  for(int ipass=0;ipass<NrPasses;++ipass){
-    // std::cout  << std::dec << "Baselinescan @ " << 50/NrPasses*ipass << "\%" << std::endl;
-    int n_of_iterations=0;
-    std::array<int16_t, NRCHANNELS> step_size;
-    std::array<uint16_t, NRCHANNELS> threshold_value;
-    std::array<double, NRCHANNELS> rate;
-    std::array<double, NRCHANNELS> old_rate;
-    std::array<int, NRCHANNELS> status;
-    status.fill(0);
-    rate.fill(0);
-    old_rate.fill(0);    
-    for(int ichannel = 0; ichannel<NRCHANNELS; ++ichannel ){
-      step_size.at(ichannel)= ichannel%NrPasses==ipass ? StartStepSize : 0;
-      threshold_value.at(ichannel)= ichannel%NrPasses==ipass ? MINTHRESHOLD : OFFTHRESH;
-      status.at(ichannel)= ichannel%NrPasses==ipass ? 0 : 4*number_of_checks-2;
-    }
-    while(!std::all_of(status.cbegin(), status.cend(), [number_of_checks](int i){ return i==4*number_of_checks-2;}) 
-      && !std::all_of(step_size.cbegin(), step_size.cend(), [](int i){ return i==0;}) 
-      && n_of_iterations<500)
-    {
-    // while(!std::all_of(step_size.cbegin(), step_size.cend(), [](int i){ return i==0;}) && n_of_iterations<200){
-      std::cout << std::dec << n_of_iterations << std::endl;
-      for(auto& step_size_ch : step_size){
-        std::cout << std::dec << step_size_ch << "\t";
-      }
-      std::cout << "\nthreshold_value_ch" << std::dec << std::endl;
-      for(auto& threshold_value_ch : threshold_value){
-        std::cout << std::dec << threshold_value_ch << "\t";
-      }
-      std::cout << "\nrate_ch" << std::dec << std::endl;
-      for(auto& rate_ch : rate){
-        std::cout << std::dec << rate_ch << "\t";
-      }
-      std::cout << "\nold_rate_ch" << std::dec << std::endl;
-      for(auto& old_rate_ch : old_rate){
-        std::cout << std::dec << old_rate_ch << "\t";
-      }
-      std::cout << "\nstatus_ch" << std::dec << std::endl;
-      for(auto& status_ch : status){
-        std::cout << std::dec << status_ch << "\t";
-      }
-      std::cout << std::dec << std::endl;             
-      std::cout << std::dec << std::endl;             
-      std::cout << std::dec << std::endl;             
-
-      ++n_of_iterations;
-      ret=WriteThresholds(threshold_value);
-      // if(n_of_iterations==1)usleep(1000000);
-      usleep(THRESHDELAY);
-      double* temp_rate;
-      temp_rate = GetRates(MeasureTime);
-      memcpy(rate.data(),temp_rate,NRCHANNELS*sizeof(double));
-
-      for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-        gRateGraphs.at(ichannel)->SetPoint(gRateGraphs.at(ichannel)->GetN(),1.*threshold_value.at(ichannel),1.*rate.at(ichannel));
-        if(status.at(ichannel)<number_of_checks){
-          if(status.at(ichannel)%2==0 && old_rate.at(ichannel) < SearchedNoise && rate.at(ichannel) > SearchedNoise){
-            status.at(ichannel)++;
-            threshold_value.at(ichannel)-=2*step_size.at(ichannel);
-          }
-          else if(status.at(ichannel)%2==1 && old_rate.at(ichannel) > SearchedNoise && rate.at(ichannel) < SearchedNoise){
-            status.at(ichannel)++;
-            // threshold_value.at(ichannel)-=step_size.at(ichannel);
-          }
-          else{
-            status.at(ichannel)=0;
-          }
-          if(status.at(ichannel)==number_of_checks*2-1){
-            step_size.at(ichannel)/=3;
-            if(step_size.at(ichannel)!=0){
-              status.at(ichannel)=0;
-            }
-            else{
-              step_size.at(ichannel)= ichannel%NrPasses==ipass ? -StartStepSize : 0;
-              threshold_value.at(ichannel)= ichannel%NrPasses==ipass ? MAXTHRESHOLD : OFFTHRESH;
-              rate.at(ichannel)==0;
-              low_edge.at(ichannel)=threshold_value.at(ichannel);
-            }
-          }
-        }
-        if(status.at(ichannel)<4*number_of_checks-2){
-          if(status.at(ichannel)%2==0 && old_rate.at(ichannel) < SearchedNoise && rate.at(ichannel) > SearchedNoise){
-            status.at(ichannel)++;
-            threshold_value.at(ichannel)-=2*step_size.at(ichannel);
-          }
-          else if(status.at(ichannel)%2==1 && old_rate.at(ichannel) > SearchedNoise && rate.at(ichannel) < SearchedNoise){
-            status.at(ichannel)++;
-            // threshold_value.at(ichannel)-=step_size.at(ichannel);
-          }
-          else{
-            status.at(ichannel)=0;
-          }
-          if(status.at(ichannel)==number_of_checks*2-1){
-            step_size.at(ichannel)/=3;
-            if(step_size.at(ichannel)!=0){
-              status.at(ichannel)=0;
-            }
-            else{
-              high_edge.at(ichannel)=threshold_value.at(ichannel);
-            }
-          }
-        }
-        threshold_value.at(ichannel)+=step_size.at(ichannel);
-      }
-      old_rate=rate;
-    }
-  }
-
-  if(fjans_readout){
-    usleep(THRESHDELAY);
-    uint32_t scaler_switch[] = {0x0};
-    TRBAccessMutex.Lock();
-    ret=trb_register_write_mem(gBoardAddress,0xdf80,0,scaler_switch,1); //switching off scaler for this dirich .... only needed when using jan's readout
-    TRBAccessMutex.UnLock();
-    if(ret<0) std::cerr << "Error switching off scalers" << std::endl;
-  }
-  for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-    // std::cout << std::dec << "high_edge\t" << high_edge.at(ichannel) << "\tlow_edge\t" << low_edge.at(ichannel) << std::endl;
-    fnoisewidth_old.at(ichannel) = fnoisewidth.at(ichannel);
-    fnoisewidth.at(ichannel) = high_edge.at(ichannel)-low_edge.at(ichannel);
-    fbaseline_old.at(ichannel) = fbaseline.at(ichannel);
-    fbaseline.at(ichannel) = (high_edge.at(ichannel)+low_edge.at(ichannel))/2;
-    // std::cout << std::dec << "fnoisewidth_old" << "\t" << fnoisewidth_old.at(ichannel) << "\t" << "fnoisewidth" << "\t" << fnoisewidth.at(ichannel) << "\t" << "fbaseline_old" << "\t" << fbaseline_old.at(ichannel) << "\t" << "fbaseline" << "\t" << fbaseline.at(ichannel) << std::endl;
-  }
-  for (int ichannel=0; ichannel<NRCHANNELS; ++ichannel){
-    gRateGraphs.at(ichannel)->Sort();
-  }  
-}
-  
 void dirich::DoThreshScan(){
   std::array<uint16_t,NRCHANNELS> gLowerEdge_array;
   for(auto& one_gLowerEdge_array : gLowerEdge_array)
@@ -1012,7 +859,6 @@ void dirich::DoThreshScan(){
     one_gUpperEdge_array=gUpperEdge;
 	DoThreshScan(0, NRCHANNELS, gLowerEdge_array, gUpperEdge_array, gMeasureTime, gStepsize, gNrPasses, 1);
 }
-  
 void dirich::DoFineThreshScan(){
   std::array<uint16_t,NRCHANNELS> gLowerEdge_array;
   std::array<uint16_t,NRCHANNELS> gUpperEdge_array;
@@ -1045,6 +891,7 @@ void dirich::DoThreshScan(uint8_t FirstChannel, uint8_t LastChannel, std::array<
   if(clear_graph==1){
     for (int ichannel=0; ichannel<NRCHANNELS; ichannel++)
       gRateGraphs[ichannel]->Set(0);
+      gRateGraphsOverBase[ichannel]->Set(0);
   }
 
   for(int ipass=0;ipass<NrPasses;++ipass){
@@ -1095,141 +942,6 @@ void dirich::DoThreshScan(uint8_t FirstChannel, uint8_t LastChannel, std::array<
   }
 }
 
-void dirich::DoThreshSearch(){
-  if(std::all_of(fbaseline.cbegin(), fbaseline.cend(), [](int i){ return i==0; })){
-    std::cerr << "dirich 0x" << std::hex << gBoardAddress << std::dec << " has no baseline yet. Please load or scan one (load_base, system_thr_scan)" << std::endl;
-    return;
-  }
-  if(gThreshold_finding_method==0){
-    DoThreshSearch(1., 0, 30., 100, 1);
-  }
-  else if(gThreshold_finding_method>0 && gThreshold_finding_method<5){
-    DoThreshScanOverBase( 0, NRCHANNELS, 0., 999., 30., 10, 1);
-    MakeDiffGraphsOverBase();
-    FindMinThreshScanOverBase(gThreshold_finding_method);
-    std::cout << "currently this method is not implemented" << std::endl;
-  } 
-  else if(gThreshold_finding_method>5 && gThreshold_finding_method<100){
-    DoThreshSearch(gThreshold_finding_method, 1, 30., 400, 1);
-  }  
-}
-void dirich::DoThreshSearch(double Perc, bool SPP_SPV /*1==SPP*/, double MeasureTime, int16_t StepSize, int NrPasses){
-  int ret;
-  if(fjans_readout){
-    uint32_t scaler_switch[] = {0xffffffff};
-    TRBAccessMutex.Lock();
-    ret=trb_register_write_mem(gBoardAddress,0xdf80,0,scaler_switch,1); //switching on scaler for this dirich .... only needed when using jan's readout
-    TRBAccessMutex.UnLock();
-    if(ret<0) std::cerr << "Error switching on scalers" << std::endl;  
-  }
-    // std::cout << "Set0" << std::endl;
-  for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
-    gRateGraphsOverBase[ichannel]->Set(0);
-    gDiffRateGraphsOverBase[ichannel]->Set(0);
-  }
-
-  std::array<double,NRCHANNELS> SPP_SPV_value;
-  for(int ipass=0;ipass<NrPasses;++ipass){
-    int n_of_iterations=0;
-    std::array<uint16_t, NRCHANNELS> step_size;
-    std::array<uint16_t, NRCHANNELS> threshold_value;
-    std::array<std::vector<double>, NRCHANNELS> rate;
-    std::array<std::vector<double>, NRCHANNELS> diff_rate;
-    for(int ichannel = 0; ichannel<NRCHANNELS; ++ichannel ){
-      step_size.at(ichannel)= ichannel%NrPasses==ipass ? StepSize : 0;
-      // step_size.at(ichannel)= ichannel==0 ? StepSize : 0;
-      // threshold_value.at(ichannel)= ichannel%NrPasses==ipass ? fbaseline.at(ichannel)+fnoisewidth.at(ichannel)/5+.5 : OFFTHRESH;
-      threshold_value.at(ichannel)= ichannel%NrPasses==ipass ? fbaseline.at(ichannel)+fnoisewidth.at(ichannel)/5+.5 : OFFTHRESH;
-      SPP_SPV_value.at(ichannel)=0;
-    }
-    while(
-        n_of_iterations==0 
-        || (
-          !std::all_of(step_size.cbegin(), step_size.cend(), [](int i){ return i==0;}) 
-          && n_of_iterations<200 
-          && !(
-            std::all_of(rate.cbegin(), rate.cend(), [](std::vector<double> i){ return i.back()< 3.;}) 
-            && std::all_of(step_size.cbegin(), step_size.cend(), [StepSize](int i){ return i==StepSize || i==0;})
-          )
-        )
-      ){
-    
-      ++n_of_iterations;
-      std::cout << "n_of_iterations " << n_of_iterations << std::endl;
-      ret=WriteThresholds(threshold_value);
-      if(n_of_iterations==1)usleep(1000000);
-      usleep(2*THRESHDELAY);
-      double* temp_rate;
-      temp_rate = GetRates(MeasureTime);
-      for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-        if(step_size.at(ichannel)==0) continue;
-        std::cout << "ichannel " << ichannel << std::endl;
-        std::cout << "threshold_value.at(ichannel) " << threshold_value.at(ichannel) << "\t";
-        std::cout << "temp_rate[ichannel] " << temp_rate[ichannel] << "\t";
-        rate.at(ichannel).push_back(temp_rate[ichannel]);
-        std::cout << "rate.at(ichannel) " << rate.at(ichannel).back() << std::endl;
-        gRateGraphsOverBase.at(ichannel)->SetPoint(gRateGraphsOverBase.at(ichannel)->GetN(),Thr_DtomV(threshold_value.at(ichannel)-fbaseline.at(ichannel)),rate.at(ichannel).back());
-        std::cout << "rate.at(ichannel).size() " << rate.at(ichannel).size() << std::endl;
-        if(step_size.at(ichannel)==StepSize && rate.at(ichannel).size()>5){
-          diff_rate.at(ichannel).push_back(-1.*rate.at(ichannel).at(rate.at(ichannel).size()-5)+16.*rate.at(ichannel).at(rate.at(ichannel).size()-4)+32.*rate.at(ichannel).at(rate.at(ichannel).size()-3)-16.*rate.at(ichannel).at(rate.at(ichannel).size()-2)+1.*rate.at(ichannel).at(rate.at(ichannel).size()-1));
-          diff_rate.at(ichannel).back()/=(12.*step_size.at(ichannel)*step_size.at(ichannel));
-        }
-        if(rate.at(ichannel).size()>=15){
-          double left_side_derivative=-1.*rate.at(ichannel).at(rate.at(ichannel).size()-15)+8.*rate.at(ichannel).at(rate.at(ichannel).size()-14)-8.*rate.at(ichannel).at(rate.at(ichannel).size()-12)+1.*rate.at(ichannel).at(rate.at(ichannel).size()-11);
-          double middle_derivative=-1.*rate.at(ichannel).at(rate.at(ichannel).size()-10)+8.*rate.at(ichannel).at(rate.at(ichannel).size()-9)-8.*rate.at(ichannel).at(rate.at(ichannel).size()-7)+1.*rate.at(ichannel).at(rate.at(ichannel).size()-6);
-          double right_side_derivative=-1.*rate.at(ichannel).at(rate.at(ichannel).size()-5)+8.*rate.at(ichannel).at(rate.at(ichannel).size()-4)-8.*rate.at(ichannel).at(rate.at(ichannel).size()-2)+1.*rate.at(ichannel).at(rate.at(ichannel).size()-1);
-          std::cout << "threshold_value.at(ichannel) " << threshold_value.at(ichannel) << " threshold_value.at(ichannel)-13*step_size.at(ichannel)-fbaseline.at(ichannel) " << threshold_value.at(ichannel)-13*step_size.at(ichannel)-fbaseline.at(ichannel) << std::endl;
-          gDiffRateGraphsOverBase.at(ichannel)->SetPoint(gDiffRateGraphsOverBase.at(ichannel)->GetN(),Thr_DtomV(threshold_value.at(ichannel)-13*step_size.at(ichannel)-fbaseline.at(ichannel)),left_side_derivative/(12.*step_size.at(ichannel)));
-          std::cout << "left_side_derivative " << left_side_derivative << " middle_derivative " << middle_derivative << " right_side_derivative " << right_side_derivative << std::endl;
-          if((SPP_SPV==1 && left_side_derivative<middle_derivative && right_side_derivative<middle_derivative) || (SPP_SPV==0 && left_side_derivative>middle_derivative && right_side_derivative>middle_derivative)){
-            rate.at(ichannel).clear();
-            if(step_size.at(ichannel)/10==0){
-              gDiffRateGraphsOverBase.at(ichannel)->SetPoint(gDiffRateGraphsOverBase.at(ichannel)->GetN(),Thr_DtomV(threshold_value.at(ichannel)-8*step_size.at(ichannel)-fbaseline.at(ichannel)),middle_derivative/(12.*step_size.at(ichannel)));
-              gDiffRateGraphsOverBase.at(ichannel)->SetPoint(gDiffRateGraphsOverBase.at(ichannel)->GetN(),Thr_DtomV(threshold_value.at(ichannel)-3*step_size.at(ichannel)-fbaseline.at(ichannel)),right_side_derivative/(12.*step_size.at(ichannel)));
-              // SPP_SPV_value.at(ichannel)=Perc*Thr_DtomV(threshold_value.at(ichannel)-step_size.at(ichannel)*5.5-fbaseline.at(ichannel));
-              SPP_SPV_value.at(ichannel)=Perc*Thr_DtomV(threshold_value.at(ichannel)-step_size.at(ichannel)*5.5-fbaseline.at(ichannel));
-              threshold_value.at(ichannel)=OFFTHRESH;
-            }
-            else{
-              threshold_value.at(ichannel)=threshold_value.at(ichannel)-step_size.at(ichannel)*6;
-            }
-            step_size.at(ichannel)/=10;
-          }
-        }
-        threshold_value.at(ichannel)=threshold_value.at(ichannel)+step_size.at(ichannel);
-      }
-    }
-    if(SPP_SPV==0){
-      for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-        if(step_size.at(ichannel)==StepSize){
-          double minimum=1E6;
-          for(int diff_rate_it=0;diff_rate_it<diff_rate.at(ichannel).size();++diff_rate_it){
-            if(diff_rate.at(ichannel).at(diff_rate_it)<minimum){
-              minimum=diff_rate.at(ichannel).at(diff_rate_it);
-              diff_rate_it*step_size.at(ichannel)+fbaseline.at(ichannel)+fnoisewidth.at(ichannel)/5+.5;
-            } 
-          }
-        }
-      }
-    }    
-  }
-
-  for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-    std::cout << Thr_mVtoD(SPP_SPV_value.at(ichannel))+fbaseline.at(ichannel) << "\t";
-    gDiffRateGraphsOverBase.at(ichannel)->Sort();
-    gRateGraphsOverBase.at(ichannel)->Sort();
-    SetSingleThresholdmV(ichannel,-1*SPP_SPV_value.at(ichannel));
-  }
-  std::cout << std::endl;
-  if(fjans_readout){
-    usleep(THRESHDELAY);
-    uint32_t scaler_switch[] = {0x0};
-    TRBAccessMutex.Lock();
-    ret=trb_register_write_mem(gBoardAddress,0xdf80,0,scaler_switch,1); //switching off scaler for this dirich .... only needed when using jan's readout
-    TRBAccessMutex.UnLock();  
-    if(ret<0) std::cerr << "Error switching off scalers" << std::endl;
-  }
-}
 void dirich::DoThreshScanOverBase(){
   if(std::all_of(fbaseline.cbegin(), fbaseline.cend(), [](int i){ return i==0; })){
     std::cerr << "dirich 0x" << std::hex << gBoardAddress << std::dec << " has no baseline yet. Please load or scan one (load_base, system_thr_scan)" << std::endl;
@@ -1239,7 +951,10 @@ void dirich::DoThreshScanOverBase(){
   // DoThreshScanOverBase(0, NRCHANNELS, Thr_DtomV(gUpperEdge-*min_element(fbaseline.begin(),fbaseline.end(),find_min_wo_zero)), gMeasureTime, Thr_DtomV(gStepsize), gNrPasses);
   // std::cout << "minimal baseline = " << *min_element(fbaseline.begin(),fbaseline.end(),find_min_wo_zero) << std::endl;
 }
-void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, double FromThrmV, double ToThrmV, double MeasureTime, double StepSize, int NrPasses){
+void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, std::array<double,NRCHANNELS> ToThrmV, double MeasureTime, double StepSize, int NrPasses){
+  if(gdirich_reporting_level>=1){
+    std::cout << std::dec << (int)FirstChannel << " " << (int)LastChannel << " " << ToThrmV.at(0) << " " << MeasureTime << " " << StepSize << " " << NrPasses << std::endl;
+  }  
   int ret;
   if(fjans_readout){
     uint32_t scaler_switch[] = {0xffffffff};
@@ -1249,35 +964,36 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, dou
     if(ret<0) std::cerr << "Error switching on scalers" << std::endl;  
   }
 
-    // std::cout << "Set0" << std::endl;
-  // for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
-  //   gRateGraphsOverBase[ichannel]->Set(0);
-  // }
   for(int ipass=0;ipass<NrPasses;++ipass){
     ret=WriteThresholds(OFFTHRESH);
     usleep(THRESHDELAY);
+    ret=WriteThresholds(OFFTHRESH);
     usleep(THRESHDELAY);
-    for (double thresh=FromThrmV; fabs(thresh)<=ToThrmV; thresh+=StepSize){
-      // if(int(1.*((thresh-0)+(ToThrmV-0)*(ipass))/((ToThrmV-0)*(NrPasses))*100)%20==0) std::cout << "Thresholdscan over Noiseband of dirich 0x" << std::hex << gBoardAddress << std::dec <<" is @ " << int(1.*((thresh-0)+(ToThrmV-0)*(ipass))/((ToThrmV-0)*(NrPasses))*100) << "%" << std::endl;
-      for (int ichannel=FirstChannel+ipass; ichannel<=LastChannel; ichannel+=NrPasses){
-        if(fbaseline[ichannel]==0) continue;
-        // std::cout << thresh << " " << Thr_DtomV(fnoisewidth[ichannel]) << std::endl;
-        if(fabs(thresh)<Thr_DtomV(fnoisewidth[ichannel])/4){
-        // if(thresh<-1*fthresholdmV[ichannel]){
-          // std::cout << "skipping" << std::endl;
-          continue;
-        }
-        ret=WriteSingleThreshold(ichannel,Thr_mVtoD(thresh)+fbaseline[ichannel]);
+
+    int max=0;
+    for(int i=0;i<NRCHANNELS;++i){
+      int temp_diff = ToThrmV.at(i);
+      max = ToThrmV.at(i)>max ? ToThrmV.at(i) : max;
+    }
+
+    for (int addthresh=0; addthresh<=max; addthresh+=StepSize){
+      if(gdirich_reporting_level==1){
+        std::cout << "\r" << std::setw(10) << std::setprecision(2) << std::fixed << 1.*(addthresh/StepSize*100)/(max/StepSize) << "%" << std::flush;
       }
+      std::array<uint16_t,NRCHANNELS> threshold_value;
+      for (int ichannel=0; ichannel<LastChannel; ichannel++){
+        threshold_value.at(ichannel) = (ichannel+ipass)%NrPasses==0 ? fbaseline.at(ichannel)+fnoisewidth.at(ichannel)/4+Thr_mVtoD(addthresh) : 0;
+      }
+      ret=WriteThresholds(threshold_value);
       usleep(THRESHDELAY);
       double* rates;
       rates = GetRates(MeasureTime);
-      for (int ichannel=FirstChannel+ipass; ichannel<LastChannel; ichannel+=NrPasses){
-        if(fbaseline[ichannel]==0) continue;
-        if(fabs(thresh)<Thr_DtomV(fnoisewidth[ichannel])/4) continue;
-        // if(thresh<-1*fthresholdmV[ichannel]) continue;
-        // std::cout << std::dec << "Channel " << ichannel << " thr " << thresh << " rate " << rates[ichannel] << std::endl;
-        gRateGraphsOverBase[ichannel]->SetPoint(gRateGraphsOverBase[ichannel]->GetN(),thresh,1.*rates[ichannel]);
+      for (int ichannel=0; ichannel<LastChannel; ichannel++){
+        if(threshold_value.at(ichannel)==0) continue;
+        gRateGraphsOverBase[ichannel]->SetPoint(gRateGraphsOverBase[ichannel]->GetN(),1.*Thr_DtomV(threshold_value.at(ichannel)-fbaseline.at(ichannel)),1.*rates[ichannel]);
+        if(gdirich_reporting_level>2){
+          std::cout << 1.*threshold_value.at(ichannel) << " " << 1.*rates[ichannel] << std::endl;
+        }
       }
 
       int finish_counter=0;
@@ -1285,14 +1001,17 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, dou
         int number_of_points = gRateGraphsOverBase[ichannel]->GetN();
         if(number_of_points>3){
           if(gRateGraphsOverBase[ichannel]->GetY()[number_of_points-1]< 3. && gRateGraphsOverBase[ichannel]->GetY()[number_of_points-2] < 3. && gRateGraphsOverBase[ichannel]->GetY()[number_of_points-3] < 3.) finish_counter++;
-          // std::cout << "gRateGraphsOverBase[ichannel]->GetY()[number_of_points-1] " << gRateGraphsOverBase[ichannel]->GetY()[number_of_points-1] << " gRateGraphsOverBase[ichannel]->GetY()[number_of_points-2] " << gRateGraphsOverBase[ichannel]->GetY()[number_of_points-2] << " gRateGraphsOverBase[ichannel]->GetY()[number_of_points-3] " << gRateGraphsOverBase[ichannel]->GetY()[number_of_points-3] << std::endl;
         }
       }
-      std::cout << "thresh " << thresh << " finish_counter " << finish_counter << " (FirstChannel-(FirstChannel+ipass))/NrPasses " << std::dec << (LastChannel-(FirstChannel+ipass))/NrPasses << std::endl;
-      if(finish_counter==(LastChannel-(FirstChannel+ipass))/NrPasses) break;
-
+      if(finish_counter==(LastChannel-(FirstChannel+ipass))/NrPasses){
+        if(gdirich_reporting_level>=1){
+          std::cout << "Stopped Scan above Threshold at threshold of " << addthresh << " as no larger Rate than 3 Hz was observed in any channel for the last three thresholds" << std::endl;
+        }  
+        break;
+      } 
     }
   }
+
   for (int ichannel=FirstChannel; ichannel<=LastChannel; ++ichannel){
     gRateGraphsOverBase[ichannel]->Sort();
   }
@@ -1304,35 +1023,6 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, dou
     TRBAccessMutex.UnLock();  
     if(ret<0) std::cerr << "Error switching off scalers" << std::endl;
   }  
-}
-
-void dirich::FindMinThreshScanOverBase(double gThreshold_finding_method){
-  for (int ichannel=0; ichannel<NRCHANNELS; ichannel++){
-    TGraph* temp = new TGraph("temp","temp");
-    for (int ipoint=2; ipoint<gDiffRateGraphsOverBase[ichannel]->GetN()-2; ++ipoint){
-          temp->SetPoint(temp->GetN(),
-                        (gDiffRateGraphsOverBase[ichannel]->GetX()[ipoint-1]+gDiffRateGraphsOverBase[ichannel]->GetX()[ipoint+1]) * 0.5,
-                        (-gDiffRateGraphsOverBase[ichannel]->GetY()[ipoint-2]+8*gDiffRateGraphsOverBase[ichannel]->GetY()[ipoint-1]-8*gDiffRateGraphsOverBase[ichannel]->GetY()[ipoint+1]+gDiffRateGraphsOverBase[ichannel]->GetY()[ipoint+2]) /
-                        (12*fabs(gDiffRateGraphsOverBase[ichannel]->GetX()[ipoint-1]-gDiffRateGraphsOverBase[ichannel]->GetX()[ipoint+1])));
-    }
-    double minimum_value=temp->GetY()[0];
-    double minimum=temp->GetX()[0];
-    int counter=0;
-    for (int ipoint=1; ipoint<temp->GetN(); ++ipoint){
-      if(temp->GetY()[ipoint-1]<minimum_value){
-        minimum_value = temp->GetY()[ipoint];
-        minimum = temp->GetX()[ipoint];
-      }
-      if(temp->GetY()[ipoint-1]>0 && temp->GetY()[ipoint]<0){
-        minimum_value = -9999999;
-        minimum = temp->GetX()[ipoint-1];
-        counter++;
-      }
-    }
-    std::cout << "perfect threshold for dirich 0x" << std::hex << gBoardAddress << "'s channel " << ichannel << " is at " << minimum << "lying in the" << counter << "rd valley." << std::endl;
-    SetSingleThresholdmV(ichannel,minimum);
-  }
-
 }
 
 void dirich::MakeDiffGraphsOverBase(){
@@ -1371,16 +1061,11 @@ void dirich::MakeGraphsOverBase(){
 }
 void dirich::MakeGraphsOverBase(uint16_t ToThr){
   for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
-    // std::cout << "Set0" << std::endl;
-    gRateGraphsOverBase[ichannel]->Set(0);
-    // std::cout << "Set" << gRateGraphsOverBase[ichannel]->GetN() << std::endl;
     if(fbaseline[ichannel]==0) continue;
     for(int ipoint=0; ipoint<gRateGraphs[ichannel]->GetN(); ++ipoint){
-      if(gRateGraphs[ichannel]->GetX()[ipoint]<fbaseline[ichannel]+1.*fnoisewidth[ichannel]/2) continue;
-      // std::cout << ipoint << " " << gRateGraphsOverBase[ichannel]->GetN() << " " << Thr_DtomV((gRateGraphs[ichannel]->GetX()[ipoint])-fbaseline[ichannel]) << " " << gRateGraphs[ichannel]->GetY()[ipoint] << std::endl;
+      if(gRateGraphs[ichannel]->GetX()[ipoint]<fbaseline.at(ichannel)) continue;
       gRateGraphsOverBase[ichannel]->SetPoint(gRateGraphsOverBase[ichannel]->GetN(),Thr_DtomV((gRateGraphs[ichannel]->GetX()[ipoint])-fbaseline[ichannel]),gRateGraphs[ichannel]->GetY()[ipoint]);
     }
-    // std::cout << gBoardAddress << " " << ichannel << " " << gRateGraphsOverBase[ichannel]->GetN() << " " << gRateGraphs[ichannel]->GetN() << " " << fbaseline[ichannel] << " " << gRateGraphs[ichannel]->GetX()[gRateGraphs[ichannel]->GetN()-1] << std::endl;
   }
 }
 

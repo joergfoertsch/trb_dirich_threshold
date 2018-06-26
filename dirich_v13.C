@@ -1250,11 +1250,12 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, dou
   }
 
     // std::cout << "Set0" << std::endl;
-  for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
-    gRateGraphsOverBase[ichannel]->Set(0);
-  }
+  // for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
+  //   gRateGraphsOverBase[ichannel]->Set(0);
+  // }
   for(int ipass=0;ipass<NrPasses;++ipass){
     ret=WriteThresholds(OFFTHRESH);
+    usleep(THRESHDELAY);
     usleep(THRESHDELAY);
     for (double thresh=FromThrmV; fabs(thresh)<=ToThrmV; thresh+=StepSize){
       // if(int(1.*((thresh-0)+(ToThrmV-0)*(ipass))/((ToThrmV-0)*(NrPasses))*100)%20==0) std::cout << "Thresholdscan over Noiseband of dirich 0x" << std::hex << gBoardAddress << std::dec <<" is @ " << int(1.*((thresh-0)+(ToThrmV-0)*(ipass))/((ToThrmV-0)*(NrPasses))*100) << "%" << std::endl;

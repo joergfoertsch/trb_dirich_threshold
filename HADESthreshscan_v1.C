@@ -636,7 +636,7 @@ void save_base(std::shared_ptr<dirich>  dirichptr, std::string filename, bool ap
 		std::cout << "saving minimal_data" << std::endl;
 		int counter=0;
   	for (auto& dirichlistitem: dirichlist){
-    	std::cout << "\r" << std::setw(10) << std::setprecision(2) << std::fixed << 1.*(counter*100)/(dirichlist.size()) << "%" << std::flush;
+    	std::cout << "\r" << std::setw(10) << std::setprecision(2) << std::fixed << 1.*((counter+1)*100)/(dirichlist.size()) << "%" << std::flush;
 			file << "# Scan-Settings for 0x" << std::hex << dirichlistitem.first << std::dec << "\n# gMeasureTime\tgLowerEdge\tgUpperEdge\tgStepsize\tgNrPasses\tgMeasureTime_over\tgUpperEdge_over\tgStepsize_over\tgNrPasses_over" << std::endl;
 			file << "# " << dirichlistitem.second->gMeasureTime << "\t" << dirichlistitem.second->gLowerEdge << "\t" << dirichlistitem.second->gUpperEdge << "\t" << dirichlistitem.second->gStepsize << "\t" << dirichlistitem.second->gNrPasses << "\t" << dirichlistitem.second->gMeasureTime_over << "\t" << dirichlistitem.second->gUpperEdge_over << "\t" << dirichlistitem.second->gStepsize_over << "\t" << dirichlistitem.second->gNrPasses_over << std::endl;
 			file << "# Scan-Data\n# dirich\tchannel\tbaseline\twidth in mV\tthreshold in mV over baseline" << std::endl;
@@ -796,15 +796,15 @@ void save_graphs(std::shared_ptr<dirich>  dirichptr, std::string filename){
 		std::cout << "saving graphs" << std::endl;
 		int counter=0;
     for (auto& dirichlistitem: dirichlist) {
-      std::cout << "\r" << std::setw(10) << std::setprecision(2) << std::fixed << 1.*(counter*100)/(dirichlist.size()) << "%" << std::flush;
+      std::cout << "\r" << std::setw(10) << std::setprecision(2) << std::fixed << 1.*((counter+1)*100)/(dirichlist.size()) << "%" << std::flush;
 			TDirectory *dirich_dir = file->mkdir(Form("dirich_0x%x",dirichlistitem.first));
 			dirich_dir->cd();
 			get_noisewidth_histo(dirichlistitem.second)->Write();
 			get_2D_rate_histo(dirichlistitem.second)->Write();
 			get_2D_rate_over_thr_histo(dirichlistitem.second)->Write();			
 			get_2D_diff_over_thr_histo(dirichlistitem.second)->Write();
-			get_2D_gr_diff_over_thr_histo(dirichlistitem.second)->Write();
-			get_2D_mgr_diff_over_thr_histo(dirichlistitem.second)->Write();			
+			// get_2D_gr_diff_over_thr_histo(dirichlistitem.second)->Write();
+			// get_2D_mgr_diff_over_thr_histo(dirichlistitem.second)->Write();			
 			TDirectory *channels = dirich_dir->mkdir("channels");
 			channels->cd();
 			for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
@@ -826,8 +826,8 @@ void save_graphs(std::shared_ptr<dirich>  dirichptr, std::string filename){
 		get_2D_rate_histo(dirichptr)->Write();
 		get_2D_rate_over_thr_histo(dirichptr)->Write();			
 		get_2D_diff_over_thr_histo(dirichptr)->Write();
-		get_2D_gr_diff_over_thr_histo(dirichptr)->Write();
-		get_2D_mgr_diff_over_thr_histo(dirichptr)->Write();			
+		// get_2D_gr_diff_over_thr_histo(dirichptr)->Write();
+		// get_2D_mgr_diff_over_thr_histo(dirichptr)->Write();			
 		TDirectory *channels = dirich_dir->mkdir("channels");
 		channels->cd();
 		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
@@ -838,7 +838,8 @@ void save_graphs(std::shared_ptr<dirich>  dirichptr, std::string filename){
 			dirichptr->gDiffRateGraphsOverBase[ichannel]->Write();
 		}
   }
-  file->Close();
+  // file->Close();
+  gROOT->GetListOfFiles()->Remove(file); // to get a faster closing time 
 }
 
 void save(){
@@ -849,14 +850,7 @@ void save(){
   const auto timeinfo = localtime(&rawtime);
   strftime(buffer.data(), sizeof(buffer), "%Y%m%d_%H%M%S", timeinfo);
   std::string str = std::string(buffer.data()) + "_std_save";
-  // std::string str = "./save/"+ string(buffer.data()) + "_std_save";
 
-  // auto t = std::time(nullptr);
-  // auto tm = *std::localtime(&t);
-
-  // std::ostringstream oss;
-  // oss << std::put_time(&tm, "%Y%m%d_%H%M%S") << "_std_save.dico";
-  // auto str = oss.str();
   save_base(NULL,str,0);
   save_graphs(NULL,str);
 }
@@ -940,7 +934,7 @@ void system_thr_scan(int type=0)
       continue;
     }    
     switch(type){
-    case 3:
+    case 1:
     	threadlist.push_back(new TThread(Form("Thread_%i",(int)dirichlistitem.first), scanthread_over, (void*) dirichlistitem.second.get()));
     	break;
     case 0:
@@ -964,7 +958,7 @@ void system_thr_scan(int type=0)
   // threadlist.clear();
   printf("System scan done ! \n");
   switch(type){
-  case 3:
+  case 1:
     save();
   	break;    	
   case 0:
@@ -1135,33 +1129,6 @@ int main(int argc, char* argv[]){
   
   initialize_diriches(1);
   std::cout << "All set and done" << std::endl;
-  // if(vm.count("info")){
-  //   return 0;
-  // }
-  // if(vm.count("scan-baseline-new")){
-  //   system_thr_scan(1);
-
-  //   if(vm.count("draw-scan-baseline")){
-  //     // std::cout << "draw-scan-baseline" << std::endl;
-  //     if(vm["draw-scan-baseline"].empty()){
-  //       draw_histo(get_2D_rate_histo(NULL),NULL);
-  //     }
-  //     for(auto& draw_scan_baseline_options : vm["draw-scan-baseline"].as<std::vector<std::string>>()){
-  //       // std::cout << "input for draw-scan-baseline: " << draw_scan_baseline_options << std::endl;
-  //       if(draw_scan_baseline_options=="0") draw_histo(get_2D_rate_histo(NULL),NULL);
-  //       else draw_histo(get_2D_rate_histo(dirichlist.at(std::stoi(draw_scan_baseline_options.substr(draw_scan_baseline_options.find("0x")!=std::string::npos ? draw_scan_baseline_options.find("0x")+2 : 0),NULL,16))),NULL);
-  //     }
-  //   }
-  //   if(vm.count("draw-noisewidth")){
-  //     if(vm["draw-noisewidth"].empty()){
-  //       draw_histo(get_noisewidth_histo(NULL),NULL);
-  //     }
-  //     for(auto& draw_noisewidth_options : vm["draw-noisewidth"].as<std::vector<std::string>>()){
-  //       if(draw_noisewidth_options=="0") draw_histo(get_noisewidth_histo(NULL),NULL);
-  //       else draw_histo(get_noisewidth_histo(dirichlist.at(std::stoi(draw_noisewidth_options.substr(draw_noisewidth_options.find("0x")!=std::string::npos ? draw_noisewidth_options.find("0x")+2 : 0),NULL,16))),NULL);
-  //     }
-  //   }
-  // }
 
   if(vm.count("scan-baseline")){
     if(vm["scan-baseline"].empty() || (vm["scan-baseline"].as<std::vector<std::string>>()).size() < 6){
@@ -1282,16 +1249,7 @@ int main(int argc, char* argv[]){
         );
       }
     }
-    system_thr_scan(3);
-  }
-
-  if(vm.count("find-threshold")){
-    for(auto& dirich : dirichlist){
-      dirich.second->gThreshold_finding_method = 0;
-      // dirich.second->gThreshold_finding_method = vm["find-threshold"].as<double>();
-      std::cout << dirich.second->gThreshold_finding_method << std::endl;
-    }
-    system_thr_scan(2);
+    system_thr_scan(1);
   }
 
   if(vm.count("load-threshold")){

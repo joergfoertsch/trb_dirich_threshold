@@ -3,6 +3,7 @@
 VERSION = v1
 TRBNETDIR = /home/hadaq/git/trbnettools
 ROOTDIR = /cvmfs/hades.gsi.de/install/root-5.34.34
+BOOSTDIR = /usr/lib/
 
 # Use this compiler
 CC = g++
@@ -21,7 +22,7 @@ ROOTLIB = -lCore -lCint -lRIO -lNet -lHist -lGraf -lGraf3d -lGpad -lTree -lRint 
 BOOSTLIB =  -lboost_program_options -lboost_filesystem -lboost_system
 
 LIBS = $(TRBNETLIB) $(ROOTLIB) $(BOOSTLIB)
-LIBDIRS = $(TRBNETLIBDIR) $(ROOTLIBDIR)
+LIBDIRS = $(TRBNETLIBDIR) $(ROOTLIBDIR) $(BOOSTDIR)
 
 # Options
 OPT = -c -std=c++11
@@ -29,7 +30,7 @@ OPT = -c -std=c++11
 # Make rules
 HADESthreshscan_$(VERSION): HADESthreshscan_$(VERSION).o
 	$(CC) -o HADESthreshscan_$(VERSION) HADESthreshscan_$(VERSION).o $(LIBDIRS) $(LIBS)
-	$(shell echo "export LD_LIBRARY_PATH=$(ROOTDIR)/lib:$(TRBNETDIR)/trbnetd:$LD_LIBRARY_PATH" > setLD)
+	$(shell echo "export LD_LIBRARY_PATH=$(ROOTLIBDIR):$(TRBNETLIBDIR):$(BOOSTDIR):$(LD_LIBRARY_PATH)" > setLD)
 clean:
 	/bin/rm -f *.o HADESthreshscan_$(VERSION) setLD
 .C.o:  $*.C

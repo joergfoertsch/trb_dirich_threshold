@@ -2,12 +2,11 @@
 Program to set DiRICH thresholds at the HADES RICH
 
 To compile the HADESthreshscan you need a version of ROOT (tested with >5.34), trbnet and boost-libraries.
-The boost libraries are assumed to be in the /lib
-ROOT and trbnet should be filled in the Makefile: TRBNETDIR, ROOTDIR.
-The current setting of both of these varibles forsees a compilation on lxhadeb06 as hadaq
-
+The ROOT, boost and trbnet libraries should be filled in the Makefile: TRBNETDIR, ROOTDIR, BOOSTDIR.
+The current setting of all of these varibles forsees a compilation on lxhadeb06 as hadaq.
 
 Before using the program you need to set the correct LD_LIBRARY_PATH via ". setLD"
+
 The usage of the program can be seen by using the --help /-h command
 Examples of standard tasks are:
 

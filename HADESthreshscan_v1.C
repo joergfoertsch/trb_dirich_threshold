@@ -839,8 +839,8 @@ void save_graphs(std::shared_ptr<dirich>  dirichptr, std::string filename){
 			dirichptr->gDiffRateGraphsOverBase[ichannel]->Write();
 		}
   }
-  // file->Close();
-  gROOT->GetListOfFiles()->Remove(file); // to get a faster closing time 
+  file->Close();
+  // gROOT->GetListOfFiles()->Remove(file); // to get a faster closing time 
 }
 
 void save(){
@@ -1267,6 +1267,36 @@ int main(int argc, char* argv[]){
       else load_base(dirichlist.at(std::stoi(load_threshold_options.substr(load_threshold_options.find("0x")!=std::string::npos ? load_threshold_options.find("0x")+2 : 0),NULL,16)), loading_file, 0, 0, 1);
     }
   }
+
+  // if(vm.count("set-to-noise")){
+  //   if(vm["set-to-noise"].empty() || (vm["set-to-noise"].as<std::vector<std::string>>()).size() < 2){
+  //     std::cout << "no or less than two arguments were provided for option --set-to-noise:\nno thresholds will be set" << std::endl;    
+  //   }
+  //   else{
+  //     std::vector<std::vector<std::string>> each_set_threshold_opt;
+  //     std::vector<std::string> temp_vec;
+  //     for(auto& set_threshold_opt : vm["set-to-noise"].as<std::vector<std::string>>()){
+  //       if(set_threshold_opt.find("0x")!=std::string::npos || set_threshold_opt=="0"){
+  //         if(temp_vec.size()==2){
+  //           each_set_threshold_opt.push_back(temp_vec);
+  //         }
+  //         temp_vec.clear();
+  //       }
+  //       temp_vec.push_back(set_threshold_opt);
+  //     }
+  //     if(temp_vec.size()==2){
+  //       each_set_threshold_opt.push_back(temp_vec);
+  //     }   
+  //     for(auto& one_set_threshold_opt : each_set_threshold_opt){
+  //       std::cout << "Setting Threshold of: "
+  //       					<< std::stoi(one_set_threshold_opt.at(0).substr(one_set_threshold_opt.at(0).find("0x")!=std::string::npos ? one_set_threshold_opt.at(0).find("0x")+2 : 0),NULL,16) << "\t"
+  //       					<< " to: "
+  //                 << std::stod(one_set_threshold_opt.at(1))
+  //                 << std::endl;
+  //       set_thresholds(one_set_threshold_opt.at(0) == "0" ? 0 : dirichlist.at(std::stoi(one_set_threshold_opt.at(0).substr(one_set_threshold_opt.at(0).find("0x")!=std::string::npos ? one_set_threshold_opt.at(0).find("0x")+2 : 0),NULL,16)), std::stod(one_set_threshold_opt.at(1)));
+  //     }
+  //   }
+  // }
 
   if(vm.count("set-threshold")){
     if(vm["set-threshold"].empty() || (vm["set-threshold"].as<std::vector<std::string>>()).size() < 2){

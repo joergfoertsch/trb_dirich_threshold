@@ -560,6 +560,7 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray)
 
       if(ret==-1) return ret;
       if(gdirich_reporting_level>2){
+        std::cout << "done setting second fpga" << std::endl;
         for(auto& c_iterator : cmd2){
           std::cout << c_iterator << " ";
         }

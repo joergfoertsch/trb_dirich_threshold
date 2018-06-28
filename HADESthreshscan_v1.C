@@ -603,8 +603,32 @@ void set_thresholds(std::shared_ptr<dirich> dirichptr, double thrinmV=30.)
 	  }
   	dirichptr->SetThresholdsmV(thrinmV);
   }
+  else{
+	    std::cerr << "No DiRICH 0x" << std::hex << dirichptr->GetBoardAddress() << " found" << std::endl;
+  }
 }
 
+void set_thresholds_to_noise(std::shared_ptr<dirich> dirichptr, double part_of_noisewidth=1.5)
+{
+  if(dirichptr==0){
+  	// std::cout << "setting threshold for all diriches: " << std::endl;
+    for (auto& dirichlistitem: dirichlist){
+      set_thresholds_to_noise(dirichlistitem.second, part_of_noisewidth);
+    }
+  }
+  else if(dirichlist.find(dirichptr->GetBoardAddress())!=dirichlist.end()){
+  	std::array<double,NRCHANNELS> thresholdvalues;
+  	std::array<uint16_t,NRCHANNELS> noisevalues = dirichptr->GetNoisewidths();
+
+  	for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
+  		thresholdvalues.at(ichannel) = part_of_noisewidth*dirich::Thr_DtomV(.5*noisevalues.at(ichannel));
+  	}
+  	dirichptr->SetThresholdsmV(thresholdvalues);
+  }
+  else{
+	    std::cerr << "No DiRICH 0x" << std::hex << dirichptr->GetBoardAddress() << " found" << std::endl;
+  }  
+}
 // void set_thresholds(std::shared_ptr<dirich> dirichptr, double* thrinmV)
 // {
 //   if(dirichptr==0){
@@ -1093,6 +1117,7 @@ int main(int argc, char* argv[]){
       ("draw-scan-above-noise", po::value<std::vector<std::string>>()->multitoken(), "Draw the results of the thresholdscan above the diriches noiseband. Dirich can be specified using this options parameter. Obviously this function fails if no scan was done!")
       ("draw-scan-above-noise-diff-gr", po::value<std::vector<std::string>>()->multitoken(), "Draw the results of the baselinescan above the diriches noiseband as differential plot. Dirich can be specified using this options parameter. Obviously this function fails if no scan was done!")
       ("draw-noisewidth,w", po::value<std::vector<std::string>>()->multitoken(), "Draw the noisewidth. Dirich can be specified using this options parameter. Obviously this function fails if neither a scan was done nor a threshold-setting was loaded!")
+      ("set-to-noise,n", po::value<std::vector<std::string>>()->multitoken(), "Set threshold to a certain distance in terms of noisewidth for specified diriches. First Parameter specifies the dirich (0 equals all dirichs), the second the part of the half-noisebandwidth.")
       ("set-threshold,t", po::value<std::vector<std::string>>()->multitoken(), "Set threshold for specified diriches in mV. First Parameter specifies the dirich (0 equals all dirichs), the second the threshold. Only positive threshold values are accepted, as the minus-sign induces errors.")
   ;
 // implicit_value(std::vector<std::string>{"0"},"0")
@@ -1268,35 +1293,35 @@ int main(int argc, char* argv[]){
     }
   }
 
-  // if(vm.count("set-to-noise")){
-  //   if(vm["set-to-noise"].empty() || (vm["set-to-noise"].as<std::vector<std::string>>()).size() < 2){
-  //     std::cout << "no or less than two arguments were provided for option --set-to-noise:\nno thresholds will be set" << std::endl;    
-  //   }
-  //   else{
-  //     std::vector<std::vector<std::string>> each_set_threshold_opt;
-  //     std::vector<std::string> temp_vec;
-  //     for(auto& set_threshold_opt : vm["set-to-noise"].as<std::vector<std::string>>()){
-  //       if(set_threshold_opt.find("0x")!=std::string::npos || set_threshold_opt=="0"){
-  //         if(temp_vec.size()==2){
-  //           each_set_threshold_opt.push_back(temp_vec);
-  //         }
-  //         temp_vec.clear();
-  //       }
-  //       temp_vec.push_back(set_threshold_opt);
-  //     }
-  //     if(temp_vec.size()==2){
-  //       each_set_threshold_opt.push_back(temp_vec);
-  //     }   
-  //     for(auto& one_set_threshold_opt : each_set_threshold_opt){
-  //       std::cout << "Setting Threshold of: "
-  //       					<< std::stoi(one_set_threshold_opt.at(0).substr(one_set_threshold_opt.at(0).find("0x")!=std::string::npos ? one_set_threshold_opt.at(0).find("0x")+2 : 0),NULL,16) << "\t"
-  //       					<< " to: "
-  //                 << std::stod(one_set_threshold_opt.at(1))
-  //                 << std::endl;
-  //       set_thresholds(one_set_threshold_opt.at(0) == "0" ? 0 : dirichlist.at(std::stoi(one_set_threshold_opt.at(0).substr(one_set_threshold_opt.at(0).find("0x")!=std::string::npos ? one_set_threshold_opt.at(0).find("0x")+2 : 0),NULL,16)), std::stod(one_set_threshold_opt.at(1)));
-  //     }
-  //   }
-  // }
+  if(vm.count("set-to-noise")){
+    if(vm["set-to-noise"].empty() || (vm["set-to-noise"].as<std::vector<std::string>>()).size() < 2){
+      std::cout << "no or less than two arguments were provided for option --set-to-noise:\nno thresholds will be set" << std::endl;    
+    }
+    else{
+      std::vector<std::vector<std::string>> each_set_threshold_noise_opt;
+      std::vector<std::string> temp_vec;
+      for(auto& set_threshold_noise_opt : vm["set-to-noise"].as<std::vector<std::string>>()){
+        if(set_threshold_noise_opt.find("0x")!=std::string::npos || set_threshold_noise_opt=="0"){
+          if(temp_vec.size()==2){
+            each_set_threshold_noise_opt.push_back(temp_vec);
+          }
+          temp_vec.clear();
+        }
+        temp_vec.push_back(set_threshold_noise_opt);
+      }
+      if(temp_vec.size()==2){
+        each_set_threshold_noise_opt.push_back(temp_vec);
+      }   
+      for(auto& one_set_threshold_noise_opt : each_set_threshold_noise_opt){
+        std::cout << "Setting Threshold of: "
+        					<< std::stoi(one_set_threshold_noise_opt.at(0).substr(one_set_threshold_noise_opt.at(0).find("0x")!=std::string::npos ? one_set_threshold_noise_opt.at(0).find("0x")+2 : 0),NULL,16) << "\t"
+        					<< " to: "
+                  << std::stod(one_set_threshold_noise_opt.at(1))
+                  << "times the noisebandwidth" << std::endl;
+        set_thresholds_to_noise(one_set_threshold_noise_opt.at(0) == "0" ? 0 : dirichlist.at(std::stoi(one_set_threshold_noise_opt.at(0).substr(one_set_threshold_noise_opt.at(0).find("0x")!=std::string::npos ? one_set_threshold_noise_opt.at(0).find("0x")+2 : 0),NULL,16)), std::stod(one_set_threshold_noise_opt.at(1)));
+      }
+    }
+  }
 
   if(vm.count("set-threshold")){
     if(vm["set-threshold"].empty() || (vm["set-threshold"].as<std::vector<std::string>>()).size() < 2){

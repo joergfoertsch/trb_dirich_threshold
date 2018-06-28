@@ -1,6 +1,7 @@
 #include "trbnet.h"
 // #include "dirich_sim.C"
 
+#include "TROOT.h"
 #include "TError.h"
 #include "TGraph.h"
 #include "TGraph2D.h"
@@ -876,10 +877,10 @@ void* scanthread_nrml(void* dirichptr) //Argument is pointer to DiRICH class ins
 
 void* scanthread_over(void* dirichptr) //Argument is pointer to DiRICH class instance
 {
-  TThread::Printf("Starting threshscan_over for Dirich at address 0x%x",((dirich*)dirichptr)->GetBoardAddress());
+  if(((dirich*)dirichptr)->gdirich_reporting_level>=1) TThread::Printf("Starting threshscan_over for Dirich at address 0x%x",((dirich*)dirichptr)->GetBoardAddress());
 	((dirich*)dirichptr)->DoThreshScanOverBase();
   ((dirich*)dirichptr)->MakeDiffGraphsOverBase();
-  TThread::Printf("Threshold scan for Dirich at address 0x%x done ! ",((dirich*)dirichptr)->GetBoardAddress()); 
+  if(((dirich*)dirichptr)->gdirich_reporting_level>=1) TThread::Printf("Threshold scan for Dirich at address 0x%x done ! ",((dirich*)dirichptr)->GetBoardAddress()); 
   return 0;
 }
 
@@ -1079,7 +1080,8 @@ int main(int argc, char* argv[]){
       // ("dont-search-dirich", "Dont't search for active diriches during startup.")
       // ("scan-baseline-new,n", "Do new baselinescan (Michaels method). No parameters need to be given!")
       ("scan-baseline,b", po::value<std::vector<std::string>>()->multitoken(), "Do standard baselinescan. Six parameters need to be given:dirich (if 0, all diriches), measure-time (s), threshold-start-value, threshold-end-value, threshold-step-width, number of cycles (two refers to every second channel measured at a time. Values will be set for all diriches!")
-      ("find-threshold,r", "find the perfect threshold for the given dirich/maptm-channel-combination. No parameters need to be given.")
+      ("verbosity,v", po::value<int>(), "Set verbosity level")
+      // ("find-threshold,r", "find the perfect threshold for the given dirich/maptm-channel-combination. No parameters need to be given.")
       // ("find-threshold,i", po::value<double>(),"find the perfect threshold for the given dirich/maptm-channel-combination. The parameter specifies the method to find the perfect threshold:\n0: searches for the minimum in the differentiated spectrum or for the minimal gradient\n0<value<5: tries to find peak and sigma of the single photon distribution and sets the threshold to value*sigma (!!!!currently not implemented!!!)\n5<value<100: tries to find the single photon peak and sets the threshold to value% of the spp-position")
       ("scan-above-noise,a", po::value<std::vector<std::string>>()->multitoken(), "Do scan for threshold-values greater than the diriches noiseband. Five parameters need to be given:dirich (if 0, all diriches), measure-time (s), threshold-end-value (mV), threshold-step-width (mV), number of cycles (two refers to every second channel measured at a time")
       ("load-baseline,l", po::value<std::vector<std::string>>()->multitoken(), "This option loads the baseline from the file specified in --loading-file. If no file was specified, the latest produced file is choosen. One can specify a certain dirich by using this options parameter. Be aware that this option overwrites the baseline retreived from the baselinescan")
@@ -1118,6 +1120,7 @@ int main(int argc, char* argv[]){
     }
     loading_file = latest.filename().string();
   }
+
   // if(vm.count("use-diriches")){
   //   for(auto& use_diriches_options : vm["use-diriches"].as<std::vector<std::string>>()){
   //     dirichlist.emplace(std::stoi(use_diriches_options.substr(use_diriches_options.find("0x")!=std::string::npos ? use_diriches_options.find("0x")+2 : 0),NULL,16),(dirich*)NULL);
@@ -1129,6 +1132,12 @@ int main(int argc, char* argv[]){
   
   initialize_diriches(1);
   std::cout << "All set and done" << std::endl;
+
+  if(vm.count("verbosity")){
+  	for(auto& dirich : dirichlist){
+  		dirich.second->gdirich_reporting_level=vm["verbosity"].as<int>();
+  	}
+  }
 
   if(vm.count("scan-baseline")){
     if(vm["scan-baseline"].empty() || (vm["scan-baseline"].as<std::vector<std::string>>()).size() < 6){
@@ -1279,7 +1288,9 @@ int main(int argc, char* argv[]){
         each_set_threshold_opt.push_back(temp_vec);
       }   
       for(auto& one_set_threshold_opt : each_set_threshold_opt){
-        std::cout << std::stoi(one_set_threshold_opt.at(0).substr(one_set_threshold_opt.at(0).find("0x")!=std::string::npos ? one_set_threshold_opt.at(0).find("0x")+2 : 0),NULL,16) << "\t"
+        std::cout << "Setting Threshold of: "
+        					<< std::stoi(one_set_threshold_opt.at(0).substr(one_set_threshold_opt.at(0).find("0x")!=std::string::npos ? one_set_threshold_opt.at(0).find("0x")+2 : 0),NULL,16) << "\t"
+        					<< " to: "
                   << std::stod(one_set_threshold_opt.at(1))
                   << std::endl;
         set_thresholds(one_set_threshold_opt.at(0) == "0" ? 0 : dirichlist.at(std::stoi(one_set_threshold_opt.at(0).substr(one_set_threshold_opt.at(0).find("0x")!=std::string::npos ? one_set_threshold_opt.at(0).find("0x")+2 : 0),NULL,16)), std::stod(one_set_threshold_opt.at(1)));

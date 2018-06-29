@@ -599,7 +599,7 @@ void dirich::SetSingleThresholdmV(uint8_t channel ,double thrinmV=30.)
 		return;
 	} 
 	int thrinD=Thr_mVtoD(thrinmV);
-	int newthreshold=baseline+thrinD;
+	int newthreshold= thrinD==0 ? 0 : baseline+thrinD;
 
 	int ret=WriteSingleThreshold(channel,newthreshold);
 	if(ret<=0){
@@ -623,7 +623,10 @@ void dirich::SetThresholdsmV(std::array<double,NRCHANNELS> thrarrayinmV)
 	 thrarrayD.at(ichannel)=0;
 	 }
 	 else{
-		thrarrayD.at(ichannel)=Thr_mVtoD(thrarrayinmV.at(ichannel))+fbaseline.at(ichannel);
+	 	if(thrarrayinmV.at(ichannel)!=0)
+			thrarrayD.at(ichannel)=Thr_mVtoD(thrarrayinmV.at(ichannel))+fbaseline.at(ichannel);
+		else 
+			thrarrayD.at(ichannel)=0;
 	 }
 	}
 	int ret=WriteThresholds(thrarrayD);

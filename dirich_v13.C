@@ -575,6 +575,20 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 			// } 
 			return ret;
 			if(check){
+
+				for(int failed=0;failed<100;++failed){
+					TRBAccessMutex.Lock();
+					ret=trb_register_write_mem(gBoardAddress,0xd400,0,cmd2.data(),18);
+					TRBAccessMutex.UnLock();
+					if(ret!=-1) break;
+					usleep(1000);
+				}
+
+				std::array<uint32_t,18> ret_c2;
+				TRBAccessMutex.Lock();
+				if(ret!=-1) ret=trb_register_read(gBoardAddress,0xd412,ret_c2.data(),18);
+				TRBAccessMutex.UnLock();
+					
 				std::cout << "checking " << std::endl;
 			}
 		}

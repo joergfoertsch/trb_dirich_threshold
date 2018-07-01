@@ -472,7 +472,7 @@ int dirich::ReadThresholds(uint16_t* thrarray)
 	return 0;
 }
 
-int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray)
+int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check)
 {
 	if(fsimulate){
 		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
@@ -574,6 +574,9 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray)
 			//	 ret=-1;
 			// } 
 			return ret;
+			if(check){
+				std::cout << "checking " << std::endl;
+			}
 		}
 	}
 }

@@ -241,7 +241,7 @@ dirich::dirich(uint16_t BoardAddress)
 	gMeasureTime=.3;
 	gLowerEdge=28000;
 	gUpperEdge=32000;
-	gStepsize=100;
+	gStepsize=75;
 	// gStepsize=25;
 	gNrPasses=1;
 	gMeasureTime_over=30.;

@@ -647,8 +647,9 @@ void set_pattern(std::shared_ptr<dirich> dirichptr, uint32_t pattern=4294967295)
 	}
 	else if(dirichlist.find(dirichptr->GetBoardAddress())!=dirichlist.end()){
 		std::array<double,NRCHANNELS> thresholdvalues;
+		std::array<uint16_t,NRCHANNELS> baselines = dirichptr->GetBaselines();
 		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-			thresholdvalues.at(ichannel) = (pattern >> ichannel) % 2 == 1 ? 0 : OFFTHRESH;
+			thresholdvalues.at(ichannel) = (pattern >> ichannel) % 2 == 1 ? 0 : dirich::Thr_DtomV(OFFTHRESH-baselines.at(ichannel));
 		}
 		dirichptr->SetThresholdsmV(thresholdvalues);
 	}

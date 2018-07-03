@@ -995,7 +995,7 @@ void dirich::DoThreshScan(uint8_t FirstChannel, uint8_t LastChannel, std::array<
 			if(ret!=-1) break;
 			usleep(THRESHDELAY);
 		}
-		if(ret<=0){
+		if(ret<0){
 		 std::cerr << "dirich 0x" << std::hex << gBoardAddress << "'s setting Thresholds failed" << std::endl;
 		 return;
 		}
@@ -1075,7 +1075,7 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, std
 			if(ret!=-1) break;
 			usleep(THRESHDELAY);
 		}
-		if(ret<=0){
+		if(ret<0){
 		 std::cerr << "dirich 0x" << std::hex << gBoardAddress << "'s setting Thresholds failed" << std::endl;
 		 return;
 		}
@@ -1099,7 +1099,7 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, std
 				if(ret!=-1) break;
 				usleep(THRESHDELAY);
 			}
-			if(ret<=0){
+			if(ret<0){
 			 std::cerr << "dirich 0x" << std::hex << gBoardAddress << "'s setting Thresholds failed" << std::endl;
 			 return;
 			}			

@@ -215,19 +215,20 @@ dirich::dirich(uint16_t BoardAddress)
 	uint32_t cmd = 0x0 | 0xff << 24;
 	uint32_t c[] = {cmd,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0x10001};
 
+	std::array<uint32_t,18> ret_c;
 	for(int failed=0;failed<100;++failed){
 		TRBAccessMutex.Lock();
 		ret=trb_register_write_mem(gBoardAddress,0xd400,0,c,18);
 		TRBAccessMutex.UnLock();
-		if(ret!=-1) break;
-		usleep(1000);
+		if(ret<0) continue;
+		usleep(THRESHDELAY);
+
+		TRBAccessMutex.Lock();
+		ret=trb_register_read(gBoardAddress,0xd412,ret_c.data(),2);
+		TRBAccessMutex.UnLock();		
+		if(ret==2 || (ret_c.at(1) & 0xff00) == 0x100) break;
 	}
 	// std::cout << ret << std::endl;
-
-	std::array<uint32_t,18> ret_c;
-	TRBAccessMutex.Lock();
-	ret=trb_register_read(gBoardAddress,0xd412,ret_c.data(),18);
-	TRBAccessMutex.UnLock();
 	if(ret!=2 || (ret_c.at(1) & 0xff00) != 0x100){
 		std::cerr << "No DiRICH2 Threshold FPGA of newest version detected (Version:0x" << std::hex << (ret_c.at(1) & 0xff00) << ")\nNot adding DiRICH" << std::dec << std::endl;
 		return;

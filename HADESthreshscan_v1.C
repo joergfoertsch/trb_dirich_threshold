@@ -650,7 +650,9 @@ void set_pattern(std::shared_ptr<dirich> dirichptr, uint32_t pattern=4294967295)
 		std::array<uint16_t,NRCHANNELS> baselines = dirichptr->GetBaselines();
 		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
 			thresholdvalues.at(ichannel) = (pattern >> ichannel) % 2 == 1 ? 0 : dirich::Thr_DtomV(OFFTHRESH-baselines.at(ichannel));
+			// std::cout << ((pattern >> ichannel) % 2 == 1 ? 0 : 1) << " ";
 		}
+		// std::cout << std::endl;
 		dirichptr->SetThresholdsmV(thresholdvalues);
 	}
 	else{
@@ -1123,7 +1125,7 @@ int main(int argc, char* argv[]){
 			("loading-file,f", po::value<std::string>(&loading_file)->default_value(""), "File to load thresholds and/or baseline from")
 			("set-to-noise,n", po::value<std::vector<std::string>>()->multitoken(), "Set threshold to a certain distance in terms of noisewidth for specified diriches. First Parameter specifies the dirich (0 equals all dirichs), the second the part of the half-noisebandwidth.")
 			("set-threshold,t", po::value<std::vector<std::string>>()->multitoken(), "Set threshold for specified diriches in mV. First Parameter specifies the dirich (0 equals all dirichs), the second the threshold. Only positive threshold values are accepted, as the minus-sign induces errors.")
-			("set-pattern,p", po::value<std::vector<std::string>>()->multitoken(), "Set pattern for specified diriches. First Parameter specifies the dirich (0 equals all dirichs), the second the pattern. The pattern is derived by interpreting the second parameter as bitpattern and disabling each channel where the corresponding bit equals 0. To disable one or many diriches completely you need to put the pattern 00!")
+			("set-pattern,p", po::value<std::vector<std::string>>()->multitoken(), "Set pattern for specified diriches. First Parameter specifies the dirich (0 equals all dirichs), the second the pattern. The pattern is derived by interpreting the second parameter as bitpattern and disabling each channel where the corresponding bit equals 0. To disable one or many diriches completely you need to put the pattern 00!. And... What you are searching for is 1431655765/2863311530")
 			("save,s", po::value<std::vector<std::string>>()->multitoken(), "Save histograms and data of specified dirich after everything else is executed! Autosaves will be still produced and saved via \"DATE_std_save{.thr,.root}\". Savefile can be set via --save-file")
 			("save-file", po::value<std::string>(&save_file)->default_value(""), "Save histograms and data. If no file specified, a std. filename will be produced")
 	;

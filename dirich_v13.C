@@ -190,11 +190,13 @@ dirich::dirich(uint16_t BoardAddress)
 	{
 
 	int ret=0;
-	for(int i=0;i<100;++i){
+	for(int tries=0;tries<100;++tries){
 		TRBAccessMutex.Lock();
 		ret=trb_read_uid(BoardAddress, buffer4mb, BUFFER_SIZE4mb);
 		TRBAccessMutex.UnLock();
-		if(ret>0) break;
+		if(ret!=4) continue;
+		if(buffer4mb[0]==0 || buffer4mb[1]==0 || buffer4mb[3] ==0) continue;
+		else break;
 	}
 	if(ret<=0){
 		std::cerr << "No DiRICH found with Address:" << std::hex << BoardAddress << "\nNot adding DiRICH" << std::endl;
@@ -216,27 +218,22 @@ dirich::dirich(uint16_t BoardAddress)
 	uint32_t c[] = {cmd,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0x10001};
 
 	std::array<uint32_t,18> ret_c;
+	int ret1=0, ret2=0;
 	for(int failed=0;failed<100;++failed){
 		TRBAccessMutex.Lock();
-		int ret1=trb_register_write_mem(gBoardAddress,0xd400,0,c,18);
+		ret1=trb_register_write_mem(gBoardAddress,0xd400,0,c,18);
 		TRBAccessMutex.UnLock();
 		// if(ret==-1) continue;
-		usleep(THRESHDELAY);
+		usleep(100);
 
 		TRBAccessMutex.Lock();
-		int ret2=trb_register_read(gBoardAddress,0xd412,ret_c.data(),2);
+		ret2=trb_register_read(gBoardAddress,0xd412,ret_c.data(),2);
 		TRBAccessMutex.UnLock();	
-		if(gdirich_reporting_level>2) std::cout << std::hex << "0x" << gBoardAddress << " 0x" << gBoardUID << " 0x" << (ret_c.at(1) & 0xff00) << std::endl;
-		if(ret1!=-1 && ret2==2 && (ret_c.at(1) & 0xff00) == 0x100){
-			ret=2;
-			break;
-		}
-		else{
-			ret=-1;
-		}
+		// std::cout << std::hex << "0x" << gBoardAddress << " 0x" << gBoardUID << " 0x" << (ret_c.at(1) & 0xff00) << std::endl;
+		if(ret1!=-1 && ret2==2 && (ret_c.at(1) & 0xff00) == 0x100) break;
 	}
 	// std::cout << ret << std::endl;
-	if(ret!=2 || (ret_c.at(1) & 0xff00) != 0x100){
+	if(ret1==-1 || ret2!=2 || (ret_c.at(1) & 0xff00) != 0x100){
 		std::cerr << "No DiRICH2 Threshold FPGA of newest version detected (Version:0x" << std::hex << (ret_c.at(1) & 0xff00) << ")\nNot adding DiRICH" << std::dec << std::endl;
 		return;
 	}

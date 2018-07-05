@@ -220,7 +220,7 @@ dirich::dirich(uint16_t BoardAddress)
 		TRBAccessMutex.Lock();
 		ret=trb_register_write_mem(gBoardAddress,0xd400,0,c,18);
 		TRBAccessMutex.UnLock();
-		if(ret<0) continue;
+		if(ret==-1) continue;
 		usleep(THRESHDELAY);
 
 		TRBAccessMutex.Lock();

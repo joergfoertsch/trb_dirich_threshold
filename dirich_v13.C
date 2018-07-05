@@ -231,7 +231,9 @@ dirich::dirich(uint16_t BoardAddress)
 			ret=2;
 			break;
 		}
-		else{ret=-1}
+		else{
+			ret=-1;
+		}
 	}
 	// std::cout << ret << std::endl;
 	if(ret!=2 || (ret_c.at(1) & 0xff00) != 0x100){

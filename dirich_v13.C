@@ -1167,12 +1167,14 @@ void dirich::MakeDiffGraphsOverBase(){
 																					(-gRateGraphsOverBase[ichannel]->GetY()[ipoint-2]+8*gRateGraphsOverBase[ichannel]->GetY()[ipoint-1]-8*gRateGraphsOverBase[ichannel]->GetY()[ipoint+1]+gRateGraphsOverBase[ichannel]->GetY()[ipoint+2]) /
 																					(12*fabs(gRateGraphsOverBase[ichannel]->GetX()[ipoint-1]-gRateGraphsOverBase[ichannel]->GetX()[ipoint+1])));
 		}
-		//smoothing the graph
-		double* x_values = gDiffRateGraphsOverBase[ichannel]->GetX();
-		double* y_values = gDiffRateGraphsOverBase[ichannel]->GetY();
-		for (int ipoint=1; ipoint<gDiffRateGraphsOverBase[ichannel]->GetN()-1; ipoint+=3) {
-			gDiffRateGraphsOverBase[ichannel]->SetPoint(ipoint-1,x_values[ipoint],1.*(y_values[ipoint-1]+y_values[ipoint]+y_values[ipoint+1])/3);
-		}
+		// //smoothing the graph
+		// double* x_values = gDiffRateGraphsOverBase[ichannel]->GetX();
+		// double* y_values = gDiffRateGraphsOverBase[ichannel]->GetY();
+		// int number = gDiffRateGraphsOverBase[ichannel]->GetN();
+		// gDiffRateGraphsOverBase[ichannel]->Set(0);
+		// for (int ipoint=1; ipoint<number-1; ipoint+=3) {
+		// 	gDiffRateGraphsOverBase[ichannel]->SetPoint(ipoint-1,x_values[ipoint],1.*(y_values[ipoint-1]+y_values[ipoint]+y_values[ipoint+1])/3);
+		// }
 	}
 }
 

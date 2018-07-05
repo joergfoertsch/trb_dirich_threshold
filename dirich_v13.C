@@ -218,16 +218,20 @@ dirich::dirich(uint16_t BoardAddress)
 	std::array<uint32_t,18> ret_c;
 	for(int failed=0;failed<100;++failed){
 		TRBAccessMutex.Lock();
-		ret=trb_register_write_mem(gBoardAddress,0xd400,0,c,18);
+		int ret1=trb_register_write_mem(gBoardAddress,0xd400,0,c,18);
 		TRBAccessMutex.UnLock();
-		if(ret==-1) continue;
+		// if(ret==-1) continue;
 		usleep(THRESHDELAY);
 
 		TRBAccessMutex.Lock();
-		ret=trb_register_read(gBoardAddress,0xd412,ret_c.data(),2);
+		int ret2=trb_register_read(gBoardAddress,0xd412,ret_c.data(),2);
 		TRBAccessMutex.UnLock();	
 		if(gdirich_reporting_level>2) std::cout << std::hex << "0x" << gBoardAddress << " 0x" << gBoardUID << " 0x" << (ret_c.at(1) & 0xff00) << std::endl;
-		if(ret==2 || (ret_c.at(1) & 0xff00) == 0x100) break;
+		if(ret1!=-1 && ret2==2 && (ret_c.at(1) & 0xff00) == 0x100){
+			ret=2;
+			break;
+		}
+		else{ret=-1}
 	}
 	// std::cout << ret << std::endl;
 	if(ret!=2 || (ret_c.at(1) & 0xff00) != 0x100){

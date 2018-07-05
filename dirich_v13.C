@@ -226,7 +226,7 @@ dirich::dirich(uint16_t BoardAddress)
 		TRBAccessMutex.Lock();
 		ret=trb_register_read(gBoardAddress,0xd412,ret_c.data(),2);
 		TRBAccessMutex.UnLock();	
-		std::cout << std::hex << (ret_c.at(1) & 0xff00) << std::endl;
+		if(gdirich_reporting_level>2) std::cout << std::hex << "0x" << gBoardAddress << " 0x" << gBoardUID << " 0x" << (ret_c.at(1) & 0xff00) << std::endl;
 		if(ret==2 || (ret_c.at(1) & 0xff00) == 0x100) break;
 	}
 	// std::cout << ret << std::endl;

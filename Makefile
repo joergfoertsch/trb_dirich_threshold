@@ -32,7 +32,7 @@ OPT = -c -std=c++11
 # Make rules
 HADESthreshscan_$(VERSION): HADESthreshscan_$(VERSION).o
 	$(CC) -o HADESthreshscan_$(VERSION) HADESthreshscan_$(VERSION).o $(LIBDIRS) $(LIBS)
-	$(shell echo "export LD_LIBRARY_PATH=$(ROOTDIR)/lib:$(TRBNETDIR)/lib:$(BOOSTDIR)/lib:$(LD_LIBRARY_PATH)" > setLD)
+	$(shell echo 'export LD_LIBRARY_PATH=$(ROOTDIR)/lib:$(TRBNETDIR)/lib:$(BOOSTDIR)/lib:"$$LD_LIBRARY_PATH"' > setLD)
 clean:
 	/bin/rm -f *.o HADESthreshscan_$(VERSION) setLD
 .C.o:  $*.C

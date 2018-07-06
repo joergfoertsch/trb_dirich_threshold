@@ -334,9 +334,9 @@ dirich::dirich(uint16_t BoardAddress)
 		// }
 
 		// if(fjans_readout!=true){ 
-		//	 TRBAccessMutex.Lock();
+			 // TRBAccessMutex.Lock();
 		//	 ret=trb_register_write(BoardAddress, 0xc802, temp_tdc_setting[1]); //reset TDC-settings
-		//	 TRBAccessMutex.UnLock();
+			 // TRBAccessMutex.UnLock();
 		//	 std::cout << "jans readout check phase 2: ret=" << std::dec << ret << " temp_tdc_setting[0]=" << std::hex << temp_tdc_setting[0] << " temp_tdc_setting[2]=" << temp_tdc_setting[1] << std::endl; 
 		//	 if(ret==-1){
 		//		 std::cout << "jans readout check phase 2: is true" << std::endl;
@@ -437,74 +437,6 @@ int dirich::ReadThresholds(std::array<uint16_t,NRCHANNELS>& thrarray){
 	}
 	return ret;
 }
-
-// int dirich::ReadThresholds(std::array<uint16_t,NRCHANNELS> thrarray)
-// {
-// 	int ret;
-// 	uint8_t real_channel;
-// 	if(gdirichver<=1){
-// 		std::array<uint32_t,NRCHANNELS+1> buffer;
-// 		TRBAccessMutex.Lock();
-// 		ret=trb_register_read(gBoardAddress,0xa000, buffer.data(), NRCHANNELS+1);
-// 		TRBAccessMutex.UnLock();
-
-// 		if((gBoardAddress != buffer[0]) || (ret != NRCHANNELS+1)) return -1;
-// 		std::copy(buffer.begin()+1,buffer.end(),thrarray.begin());
-// 		return 0;
-// 	}	
-// 	else{
-// 		std::array<uint32_t,18> cmd1;
-// 		std::array<uint32_t,18> cmd2;
-
-// 		for(int channel=0;channel<16;++channel){
-// 			uint8_t real_channel = channel%16+16*abs(gdirichver-3);
-// 			cmd1.at(channel) = 0x0 << 20 | real_channel << 24 | 0 <<0;
-// 		}
-// 		cmd1.at(16)=1; 
-// 		cmd1.at(17)=0x10010; 
-
-// 		for(int channel=0;channel<16;++channel){
-// 			uint8_t real_channel = channel%16+16*abs(gdirichver-3);
-// 			cmd2.at(channel) = 0x0 << 20 | real_channel << 24 | 0 <<0;
-// 		}
-// 		cmd2.at(16)=2;
-// 		cmd2.at(17)=0x10010; 
-// 		for(int failed=0;failed<100;++failed){
-// 			TRBAccessMutex.Lock();
-// 			ret=trb_register_write_mem(gBoardAddress,0xd400,0,cmd1.data(),18);
-// 			TRBAccessMutex.UnLock();
-// 			if(ret!=-1) break;
-// 			usleep(1000);
-// 		}
-// 		std::array<uint32_t,18> ret_c1;
-// 		TRBAccessMutex.Lock();
-// 		ret=trb_register_read(gBoardAddress,0xd412,ret_c1.data(),18);
-// 		TRBAccessMutex.UnLock();
-// 		// if((gBoardAddress != ret_c[0]) || (ret != 2)) return -1;
-
-// 		for(int failed=0;failed<100;++failed){
-// 			TRBAccessMutex.Lock();
-// 			ret=trb_register_write_mem(gBoardAddress,0xd400,0,cmd2.data(),18);
-// 			TRBAccessMutex.UnLock();
-// 			if(ret!=-1) break;
-// 			usleep(1000);
-// 		}
-// 		std::array<uint32_t,18> ret_c2;
-// 		TRBAccessMutex.Lock();
-// 		ret=trb_register_read(gBoardAddress,0xd412,ret_c2.data(),18);
-// 		TRBAccessMutex.UnLock();
-// 		// if((gBoardAddress != ret_c[0]) || (ret != 2)) return -1;
-// 		std::cout << "test" << std::dec << ret << std::endl;
-// 		for(auto& one : ret_c2)
-// 		std::cout << std::hex << one << " ";
-// 		std::cout << std::endl;
-// 		for(int i=0;i<NRCHANNELS;++i){
-// 			if(i/16)thrarray.at(i) = ret_c2.at(i%16);
-// 			else thrarray.at(i) = ret_c1.at(i%16);
-// 		}
-// 		return ret;
-// 	}
-// }
 
 int dirich::WriteSingleThreshold(uint8_t channel, uint16_t thrvalue, bool check) 
 {
@@ -796,7 +728,7 @@ double dirich::GetSingleRate(double delay, uint8_t channel)
 		for(unsigned long long int itime=0;itime<delay*1000000;++itime){
 		// for(unsigned long long int itime=0;itime<delay*1000000000000;++itime){
 			// if(itime%1000000==0) std::cout << std::dec << itime << " ";
-			// GetRateMutex.Lock();
+			GetRateMutex.Lock();
 			std::uniform_real_distribution<double> is_spp_dist(0,1);
 			std::normal_distribution<double> noise_dist(fsim_baseline.at(channel),fsim_noise_sigma.at(channel));
 			std::normal_distribution<double> spp_dist(fsim_singlephotonpeakposition.at(channel),2000);
@@ -819,7 +751,7 @@ double dirich::GetSingleRate(double delay, uint8_t channel)
 				}
 			}
 		}
-		// GetRateMutex.UnLock();
+		GetRateMutex.UnLock();
 		double counter_d = 0;
 		// std::cout << "fsim_current_threshold.at(ichannel) " << std::dec << fsim_current_threshold.at(ichannel) << std::endl;
 		// std::cout << "counter.at(ichannel) " << counter.at(ichannel) << std::endl;

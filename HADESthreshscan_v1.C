@@ -36,7 +36,6 @@ namespace fs = boost::filesystem;
 // #define 0 0
 // #define LASTCHANNEL 31
 
-
 #ifndef NCH
 	const int NRCHANNELS = 32;			 //Nr of TDC channels in dirich
 	// const int NRCHANNELS = 4;			 //Nr of TDC channels in dirich
@@ -1029,9 +1028,9 @@ void initialize_diriches(bool search_dirich){
 		const size_t size4mb = 8000; //sufficient for 2000 DiRICHes
 		uint32_t buffer[size4mb];
 		for(int i=0;i<100;++i){
-			TRBAccessMutex.Lock();
+			// TRBAccessMutex.Lock();
 			ret=trb_read_uid(0xfe51, buffer, size4mb);
-			TRBAccessMutex.UnLock();
+			// TRBAccessMutex.UnLock();
 			if(ret>0) break;
 		}
 		if(ret<0){

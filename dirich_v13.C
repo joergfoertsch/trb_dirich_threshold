@@ -1041,13 +1041,15 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, std
 			 return;
 			}			
 			usleep(THRESHDELAY);
-			double* rates;
-			rates = GetRates(MeasureTime);
-			for (int ichannel=0; ichannel<LastChannel; ichannel++){
-				if(threshold_value.at(ichannel)==0) continue;
-				gRateGraphsOverBase[ichannel]->SetPoint(gRateGraphsOverBase[ichannel]->GetN(),1.*Thr_DtomV(threshold_value.at(ichannel)-fbaseline.at(ichannel)),1.*rates[ichannel]);
-				if(gdirich_reporting_level>2){
-					std::cout << 1.*threshold_value.at(ichannel) << " " << 1.*rates[ichannel] << std::endl;
+			for(int measures=0;measures<gMeasureTime_over/3;++measures){
+				double* rates;
+				rates = GetRates(MeasureTime);
+				for (int ichannel=0; ichannel<LastChannel; ichannel++){
+					if(threshold_value.at(ichannel)==0) continue;
+					gRateGraphsOverBase[ichannel]->SetPoint(gRateGraphsOverBase[ichannel]->GetN(),1.*Thr_DtomV(threshold_value.at(ichannel)-fbaseline.at(ichannel)),1.*rates[ichannel]);
+					if(gdirich_reporting_level>2){
+						std::cout << 1.*threshold_value.at(ichannel) << " " << 1.*rates[ichannel] << std::endl;
+					}
 				}
 			}
 
@@ -1084,23 +1086,41 @@ void dirich::MakeDiffGraphsOverBase(){
 	// MakeDiffGraphsOverBase(gLowerEdge, gUpperEdge);
 // }
 // void dirich::MakeDiffGraphsOverBase(uint16_t FromThr, uint16_t ToThr){
-	for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
-		// if(FromThr==0){
-		// 	FromThr=fbaseline[ichannel]+fnoisewidth[ichannel]/2;
-		// }
-		// std::cout << "Set0" << std::endl;
+	for(int ichannel;ichannel<NRCHANNELS;++ichannel){
 		gDiffRateGraphsOverBase[ichannel]->Set(0);
-		// std::cout << "Set" << gDiffRateGraphsOverBase[ichannel]->GetN() << std::endl;
-		// doing the derivative (5 point stencil)
-		for (int ipoint=2; ipoint<gRateGraphsOverBase[ichannel]->GetN()-2; ++ipoint) {
-			// gDiffRateGraphsOverBase[ichannel]->SetPoint(gDiffRateGraphsOverBase[ichannel]->GetN(),
-			//																		 (gRateGraphsOverBase[ichannel]->GetX()[ipoint-1]+gRateGraphsOverBase[ichannel]->GetX()[ipoint+1]) * 0.5,
-			//																		 (gRateGraphsOverBase[ichannel]->GetY()[ipoint-1]-gRateGraphsOverBase[ichannel]->GetY()[ipoint+1]) /
-			//																		 fabs(gRateGraphsOverBase[ichannel]->GetX()[ipoint-1]-gRateGraphsOverBase[ichannel]->GetX()[ipoint+1]));
+
+
+		TGraph* temp_graph = new TGraph();
+		std::map<double,std::vector<double>> points_per_x;
+		double* x_val = gRateGraphsOverBase[ichannel]->GetX();
+		double* y_val = gRateGraphsOverBase[ichannel]->GetY();
+
+		std::std::vector<double,double> val_med;
+		std::vector<double> y_val_med;
+		for (int ipoint=0; ipoint<gRateGraphsOverBase[ichannel]->GetN(); ++ipoint) {
+			if(points_per_x.count(x_val[ipoint])==0){
+				std::vector<double> temp;
+				points_per_x.insert(std::pair(x_val[ipoint],temp));
+			}
+			points_per_x.at(x_val[ipoint]).push_back(y_val[ipoint]);
+		}
+		for(auto& x_vals : points_per_x){
+			std::sort(x_vals.second.begin(),x_vals.second.end());
+			double med=0;
+			if(x_vals.second.size()%2==0){
+				med=(x_vals.second.at(x_vals.second.size()/2)+x_vals.second.at((x_vals.second.size()+1)/2))/2;
+			}
+			else{
+				med=x_vals.second.at(x_vals.second.size()/2);
+			}
+			val_med.push_back(std::pair(x_vals.first,med));
+		}
+
+		for (int ipoint=2;ipoint<val_med.size()-2;++ipoint){
 			gDiffRateGraphsOverBase[ichannel]->SetPoint(gDiffRateGraphsOverBase[ichannel]->GetN(),
-																					(gRateGraphsOverBase[ichannel]->GetX()[ipoint-1]+gRateGraphsOverBase[ichannel]->GetX()[ipoint+1]) * 0.5,
-																					(-gRateGraphsOverBase[ichannel]->GetY()[ipoint-2]+8*gRateGraphsOverBase[ichannel]->GetY()[ipoint-1]-8*gRateGraphsOverBase[ichannel]->GetY()[ipoint+1]+gRateGraphsOverBase[ichannel]->GetY()[ipoint+2]) /
-																					(12*fabs(gRateGraphsOverBase[ichannel]->GetX()[ipoint-1]-gRateGraphsOverBase[ichannel]->GetX()[ipoint+1])));
+																					(val_med.at(ipoint-1).first+val_med.at(ipoint+1).first) * 0.5,
+																					(-val_med.at(ipoint-2).second+8*val_med.at(ipoint-1).second-8*val_med.at(ipoint+1).second+val_med.at(ipoint+2).second) /
+																					(12*fabs(val_med.at(ipoint-1).first-val_med.at(ipoint+1).first)));
 		}
 		// //smoothing the graph
 		// double* x_values = gDiffRateGraphsOverBase[ichannel]->GetX();

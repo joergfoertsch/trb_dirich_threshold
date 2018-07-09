@@ -1095,12 +1095,11 @@ void dirich::MakeDiffGraphsOverBase(){
 		double* x_val = gRateGraphsOverBase[ichannel]->GetX();
 		double* y_val = gRateGraphsOverBase[ichannel]->GetY();
 
-		std::std::vector<double,double> val_med;
-		std::vector<double> y_val_med;
+		std::vector<std::pair<double,double> > val_med;
 		for (int ipoint=0; ipoint<gRateGraphsOverBase[ichannel]->GetN(); ++ipoint) {
 			if(points_per_x.count(x_val[ipoint])==0){
 				std::vector<double> temp;
-				points_per_x.insert(std::pair(x_val[ipoint],temp));
+				points_per_x.insert(std::pair<double,std::vector<double>>(x_val[ipoint],temp));
 			}
 			points_per_x.at(x_val[ipoint]).push_back(y_val[ipoint]);
 		}
@@ -1113,7 +1112,7 @@ void dirich::MakeDiffGraphsOverBase(){
 			else{
 				med=x_vals.second.at(x_vals.second.size()/2);
 			}
-			val_med.push_back(std::pair(x_vals.first,med));
+			val_med.push_back(std::pair<double,double>(x_vals.first,med));
 		}
 
 		for (int ipoint=2;ipoint<val_med.size()-2;++ipoint){

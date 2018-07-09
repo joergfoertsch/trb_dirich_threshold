@@ -1154,6 +1154,8 @@ void dirich::AnalyzeBaseline(uint32_t NoiseThreshold)
 		int NrBins=gRateGraphs[ichannel]->GetN();
 		int noiseedgeleft=-1;
 		int noiseedgeright=-1;
+		double max=0;
+		double max_x=0;
 
 		for (int ibin=0; ibin<NrBins-1; ibin++) {
 			if( 
@@ -1183,15 +1185,26 @@ void dirich::AnalyzeBaseline(uint32_t NoiseThreshold)
 				noiseedgeright=x2-(NoiseThreshold-y2)/(y1-y2)*(x2-x1);
 				// std::cout << ichannel << " RightEdge " << ibin << " " << x1 << " " << x2 << " " << y1 << " " << y2 << " " << noiseedgeright << std::endl;
 			}
-
+			if(gRateGraphs[ichannel]->GetY()[ibin]>max){
+				max=gRateGraphs[ichannel]->GetY()[ibin];
+				max_x=gRateGraphs[ichannel]->GetX()[ibin];
+			}
 			if(noiseedgeleft!=-1 && noiseedgeright!=-1) break;
 		}
 		if(noiseedgeleft==-1 || noiseedgeright==-1){
-			fbaseline_old[ichannel] = fbaseline[ichannel];
-			fbaseline[ichannel] = 0;
-			fnoisewidth_old[ichannel] = fnoisewidth[ichannel];
-			fnoisewidth[ichannel] = 0;
-			std::cout << "No baseline found for channel " << ichannel << "on dirich 0x" << std::hex << gBoardAddress << std::dec << std::endl;
+			if(max==0 || NrBins<2){
+				fbaseline_old[ichannel] = fbaseline[ichannel];
+				fbaseline[ichannel] = 0;
+				fnoisewidth_old[ichannel] = fnoisewidth[ichannel];
+				fnoisewidth[ichannel] = 0;
+				std::cout << "No baseline found for channel " << ichannel << "on dirich 0x" << std::hex << gBoardAddress << std::dec << std::endl;
+			}
+			else{
+				fbaseline_old[ichannel] = fbaseline[ichannel];
+				fbaseline[ichannel] = max_x;
+				fnoisewidth_old[ichannel] = fnoisewidth[ichannel];
+				fnoisewidth[ichannel] = 2*(gRateGraphs[ichannel]->GetX()[0]-gRateGraphs[ichannel]->GetX()[1]);
+			}
 		}
 		else {
 			fbaseline_old[ichannel] = fbaseline[ichannel];

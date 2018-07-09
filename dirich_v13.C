@@ -997,6 +997,8 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, std
 	if(gdirich_reporting_level>=1){
 		std::cout << std::dec << (int)FirstChannel << " " << (int)LastChannel << " " << ToThrmV.at(0) << " " << MeasureTime << " " << StepSize << " " << NrPasses << std::endl;
 	} 
+	double gMeasureTime_over_temp=3.;
+	int gMeasures = gMeasureTime_over/gMeasureTime_over_temp;
 	int ret;
 	if(fjans_readout){
 		uint32_t scaler_switch[] = {0xffffffff};
@@ -1041,9 +1043,9 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, std
 			 return;
 			}			
 			usleep(THRESHDELAY);
-			for(int measures=0;measures<gMeasureTime_over/3;++measures){
+			for(int measures=0;measures<gMeasures;++measures){
 				double* rates;
-				rates = GetRates(3);
+				rates = GetRates(gMeasureTime_over_temp);
 				for (int ichannel=0; ichannel<LastChannel; ichannel++){
 					if(threshold_value.at(ichannel)==0) continue;
 					gRateGraphsOverBase[ichannel]->SetPoint(gRateGraphsOverBase[ichannel]->GetN(),1.*Thr_DtomV(threshold_value.at(ichannel)-fbaseline.at(ichannel)),1.*rates[ichannel]);
@@ -1088,9 +1090,8 @@ void dirich::MakeDiffGraphsOverBase(){
 // void dirich::MakeDiffGraphsOverBase(uint16_t FromThr, uint16_t ToThr){
 	for(int ichannel;ichannel<NRCHANNELS;++ichannel){
 		gDiffRateGraphsOverBase[ichannel]->Set(0);
+		if(fbaseline[ichannel]==0) continue;
 
-
-		TGraph* temp_graph = new TGraph();
 		std::map<double,std::vector<double>> points_per_x;
 		double* x_val = gRateGraphsOverBase[ichannel]->GetX();
 		double* y_val = gRateGraphsOverBase[ichannel]->GetY();
@@ -1114,7 +1115,6 @@ void dirich::MakeDiffGraphsOverBase(){
 			}
 			val_med.push_back(std::pair<double,double>(x_vals.first,med));
 		}
-
 		for (int ipoint=2;ipoint<val_med.size()-2;++ipoint){
 			gDiffRateGraphsOverBase[ichannel]->SetPoint(gDiffRateGraphsOverBase[ichannel]->GetN(),
 																					(val_med.at(ipoint-1).first+val_med.at(ipoint+1).first) * 0.5,

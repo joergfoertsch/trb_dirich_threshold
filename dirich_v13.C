@@ -1043,7 +1043,7 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, std
 			usleep(THRESHDELAY);
 			for(int measures=0;measures<gMeasureTime_over/3;++measures){
 				double* rates;
-				rates = GetRates(MeasureTime);
+				rates = GetRates(3);
 				for (int ichannel=0; ichannel<LastChannel; ichannel++){
 					if(threshold_value.at(ichannel)==0) continue;
 					gRateGraphsOverBase[ichannel]->SetPoint(gRateGraphsOverBase[ichannel]->GetN(),1.*Thr_DtomV(threshold_value.at(ichannel)-fbaseline.at(ichannel)),1.*rates[ichannel]);

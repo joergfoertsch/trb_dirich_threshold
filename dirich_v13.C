@@ -792,7 +792,7 @@ double dirich::GetSingleRate(double delay, uint8_t channel)
 		double exactdelay1=std::chrono::duration_cast<std::chrono::microseconds>(stop1-start1).count() * 1e-6;
 		uint32_t scaler_diff=scaler2<scaler1?
 			(2<<27)+scaler2-scaler1 : scaler2-scaler1;
-		double rate=1.*rate/exactdelay1;
+		double rate=1.*scaler_diff/exactdelay1;
 		return rate;
 	}
 }
@@ -874,7 +874,7 @@ double* dirich::GetRates(double delay)
 		for (int i=0; i<NRCHANNELS; i++) {
 			uint32_t scaler_diff=scaler2[i]<scaler1[i]?
 				(2<<27)+scaler2[i]-scaler1[i] : scaler2[i]-scaler1[i];
-			double rate=1.*rate/exactdelay1;
+			double rate=1.*scaler_diff/exactdelay1;
 			ratevalues[i]=rate;
 		}
 		return ratevalues;

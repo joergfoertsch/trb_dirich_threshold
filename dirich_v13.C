@@ -581,12 +581,12 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 			ret=ReadThresholds(set_thresholds);
 			if(ret==-1) return ret;
 			if(gdirich_reporting_level>2){
-			std::cout << "set_blabla" << std::endl;
+			std::cout << "set_thr" << std::endl;
 				for(auto& set_threshold : set_thresholds){
 					std::cout << std::hex << set_threshold << " ";
 				}
 				std::cout << std::endl;
-			}					
+			}
 			for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
 				if(thrarray.at(ichannel)!=0 && abs(thrarray.at(ichannel)-set_thresholds.at(ichannel))>0){
 				// if(thrarray.at(ichannel)!=0 && abs(thrarray.at(ichannel)-set_thresholds.at(ichannel))>2){
@@ -711,8 +711,17 @@ int dirich::ReadScalers(uint32_t* scalervalues, std::chrono::high_resolution_clo
 	// if (ret != NRCHANNELS+1) 
 	// if ( gBoardAddress != buffer[0]) 
 	if ( (ret == NRCHANNELS+1) && (fjans_readout || gBoardAddress == (buffer[0] & 0xffff)) ){
+		if(gdirich_reporting_level>=5){
+			std::cout << "scalers:" << std::endl;
+		}
 		for (int i=0;i<NRCHANNELS;i++){
 			scalervalues[i]=buffer[i+1] & 0xfffffff;
+			if(gdirich_reporting_level>=5){
+				std::cout << std::dec <<scalervalues[i] << " ";
+			}
+		}
+		if(gdirich_reporting_level>=5){
+			std::cout << std::endl;
 		}
 		return 0;
 	}
@@ -876,6 +885,9 @@ double* dirich::GetRates(double delay)
 				(2<<27)+scaler2[i]-scaler1[i] : scaler2[i]-scaler1[i];
 			double rate=1.*scaler_diff/exactdelay1;
 			ratevalues[i]=rate;
+			if(gdirich_reporting_level>=5){
+				std::cout << exactdelay1 << std::dec << " " << scaler2[i] << " " << scaler1[i] << " " << scaler_diff << " " << rate << std::endl;
+			}
 		}
 		return ratevalues;
 	}

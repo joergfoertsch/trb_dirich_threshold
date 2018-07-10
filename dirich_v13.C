@@ -366,7 +366,7 @@ int dirich::WriteSingleThreshold(uint8_t channel, uint16_t thrvalue, bool check)
 			// uint8_t real_channel = channel%16+16;
 			uint32_t cmd = 0x8 << 20 | real_channel << 24 | thrvalue <<0;
 			// uint32_t c[] = {cmd,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,(uint32_t)(channel/16+1),0x10001}; //evtl. sind auch mehrere Kanäle auf einmal setzbar.
-			std::array<uint32_t,18> c = {cmd,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,(uint32_t)(channel/16+1),0x10001}; //evtl. sind auch mehrere Kanäle auf einmal setzbar.
+			std::array<uint32_t,18> c = {cmd,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,(uint32_t)(channel/16+1),0x00001}; //evtl. sind auch mehrere Kanäle auf einmal setzbar.
 
 			TRBAccessMutex.Lock();
 			ret=trb_register_write_mem(gBoardAddress,0xd400,0,c.data(),18);
@@ -375,10 +375,6 @@ int dirich::WriteSingleThreshold(uint8_t channel, uint16_t thrvalue, bool check)
 			usleep(1000);
 		}
 		if(ret==-1) return ret;
-		uint32_t ret_c[18];
-		TRBAccessMutex.Lock();
-		ret=trb_register_read(gBoardAddress,0xd412,ret_c,18);
-		TRBAccessMutex.UnLock();
 		if(check){
 			uint16_t set_threshold;
 			ret=ReadSingleThreshold(channel, set_threshold);
@@ -417,7 +413,7 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 			}
 		}
 		cmd1.at(16)=1; 
-		cmd1.at(17)=0x10000 | counter; 
+		cmd1.at(17)=0x00000 | counter; 
 
 		counter=0;
 		for(int channel=16;channel<32;++channel){
@@ -428,7 +424,7 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 			}
 		}
 		cmd2.at(16)=2;
-		cmd2.at(17)=0x10000 | counter;
+		cmd2.at(17)=0x00000 | counter;
 
 		for(int failed=0;failed<100;++failed){
 			TRBAccessMutex.Lock();
@@ -440,12 +436,6 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 		}
 		if(ret==-1) return ret;
 
-		std::array<uint32_t,18> ret_c1;
-		TRBAccessMutex.Lock();
-		ret=trb_register_read(gBoardAddress,0xd412,ret_c1.data(),18);
-		TRBAccessMutex.UnLock();
-		if(ret==-1) return ret;
-
 		for(int failed=0;failed<100;++failed){
 			TRBAccessMutex.Lock();
 			ret=trb_register_write_mem(gBoardAddress,0xd400,0,cmd2.data(),18);
@@ -453,12 +443,6 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 			if(ret!=-1) break;
 			usleep(1000);
 		}
-		if(ret==-1) return ret;
-
-		std::array<uint32_t,18> ret_c2;
-		TRBAccessMutex.Lock();
-		ret=trb_register_read(gBoardAddress,0xd412,ret_c2.data(),18);
-		TRBAccessMutex.UnLock();
 		if(ret==-1) return ret;
 	}
 

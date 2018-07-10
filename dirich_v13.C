@@ -68,8 +68,8 @@ private:
 	int WriteSingleThreshold(uint8_t channel, uint16_t thrvalue, bool check);
 	int WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check);
 	int WriteThresholds(uint16_t thrvalue, bool check);
-	int ReadSingleScaler(uint8_t channel, uint32_t &scalervalue, std::chrono::high_resolution_clock::time_point& access_time);
-	int ReadScalers(uint32_t* scalervalues, std::chrono::high_resolution_clock::time_point& access_time);
+	int ReadSingleScaler(uint8_t channel, uint32_t &scalervalue, std::chrono::steady_clock::time_point& access_time);
+	int ReadScalers(uint32_t* scalervalues, std::chrono::steady_clock::time_point& access_time);
 	// int GetRates(uint32_t* ratevalues, double delay=1);
 
 	bool fsimulate = true;
@@ -349,8 +349,8 @@ dirich::dirich(uint16_t BoardAddress)
 	//	 // uint32_t scaler1[NRCHANNELS];
 	//	 // // std::cout << "GetSingleRate" << scaler1 << " " << scaler2 << " " << ratevalues << std::endl;
 	//	 // GetRateMutex.Lock();
-	//	 // // auto start = std::chrono::high_resolution_clock::now();
-	//	 // std::chrono::high_resolution_clock::time_point start1;
+	//	 // // auto start = std::chrono::steady_clock::now();
+	//	 // std::chrono::steady_clock::time_point start1;
 	//	 // for(int iterator=0;iterator<100;++iterator){
 	//	 // if(ret>=0) break;
 	//	 // ret=ReadScalers(scaler1,start1);
@@ -673,7 +673,7 @@ void dirich::SetThresholdsmV(double thrinmV=30.)
 }
 
 
-int dirich::ReadSingleScaler(uint8_t channel, uint32_t& scalervalue, std::chrono::high_resolution_clock::time_point& access_time)
+int dirich::ReadSingleScaler(uint8_t channel, uint32_t& scalervalue, std::chrono::steady_clock::time_point& access_time)
 {
 	int ret;
 	if (channel>NRCHANNELS)
@@ -683,7 +683,7 @@ int dirich::ReadSingleScaler(uint8_t channel, uint32_t& scalervalue, std::chrono
 	// else reg=0xc000+channel;
 	uint32_t buffer[2];
 	TRBAccessMutex.Lock();
-	access_time = std::chrono::high_resolution_clock::now();
+	access_time = std::chrono::steady_clock::now();
 	ret=trb_register_read(gBoardAddress,reg, buffer, 2);
 	TRBAccessMutex.UnLock();
 	if ( (gBoardAddress != buffer[0]) || (ret != 2) ) 
@@ -693,7 +693,7 @@ int dirich::ReadSingleScaler(uint8_t channel, uint32_t& scalervalue, std::chrono
 	return 0;
 }
 
-int dirich::ReadScalers(uint32_t* scalervalues, std::chrono::high_resolution_clock::time_point& access_time)
+int dirich::ReadScalers(uint32_t* scalervalues, std::chrono::steady_clock::time_point& access_time)
 {
 	int ret;
 	uint16_t reg=0xc000+1;
@@ -702,7 +702,7 @@ int dirich::ReadScalers(uint32_t* scalervalues, std::chrono::high_resolution_clo
 	uint32_t buffer[NRCHANNELS+1];
 	for (int i=0;i<NRCHANNELS+1; i++) buffer[i]=0;
 	TRBAccessMutex.Lock();
-	access_time = std::chrono::high_resolution_clock::now();
+	access_time = std::chrono::steady_clock::now();
 	// ret=trb_register_read(gBoardAddress,reg,buffer,NRCHANNELS);
 	ret=trb_register_read_mem(gBoardAddress,reg,0,NRCHANNELS,buffer,NRCHANNELS+1);
 	// ret=trb_register_read_mem(gBoardAddress,reg,0,NRCHANNELS,buffer,NRCHANNELS+1);
@@ -775,7 +775,7 @@ double dirich::GetSingleRate(double delay, uint8_t channel)
 		uint32_t scaler1;
 		uint32_t scaler2;
 		GetRateMutex.Lock();
-		std::chrono::high_resolution_clock::time_point start1;
+		std::chrono::steady_clock::time_point start1;
 		for(int iterator=0;iterator<100;++iterator){
 			if(ret>=0) break;
 			ret=ReadSingleScaler(channel,scaler1,start1);
@@ -788,7 +788,7 @@ double dirich::GetSingleRate(double delay, uint8_t channel)
 		usleep(1e6*delay);
 		ret=-1;
 		GetRateMutex.Lock();
-		std::chrono::high_resolution_clock::time_point stop1;
+		std::chrono::steady_clock::time_point stop1;
 		for(int iterator=0;iterator<100;++iterator){
 			if(ret>=0) break;
 			ret=ReadSingleScaler(channel,scaler2,stop1);
@@ -858,7 +858,7 @@ double* dirich::GetRates(double delay)
 		uint32_t scaler2[NRCHANNELS];
 		double* ratevalues = (double*) calloc(NRCHANNELS, sizeof(double*));
 		GetRateMutex.Lock();
-		std::chrono::high_resolution_clock::time_point start1;
+		std::chrono::steady_clock::time_point start1;
 		for(int iterator=0;iterator<100;++iterator){
 			if(ret>=0) break;
 			ret=ReadScalers(scaler1,start1);
@@ -870,7 +870,7 @@ double* dirich::GetRates(double delay)
 		usleep(1e6*delay);
 		ret=-1;
 		GetRateMutex.Lock();
-		std::chrono::high_resolution_clock::time_point stop1;
+		std::chrono::steady_clock::time_point stop1;
 		for(int iterator=0;iterator<100;++iterator){
 			if(ret>=0) break;
 			ret=ReadScalers(scaler2,stop1);
@@ -1056,8 +1056,7 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, std
 			}			
 			usleep(THRESHDELAY);
 			for(int measures=0;measures<gMeasures;++measures){
-				double* rates;
-				rates = GetRates(gMeasureTime_over_temp);
+				double* rates = GetRates(gMeasureTime_over_temp);
 				for (int ichannel=0; ichannel<LastChannel; ichannel++){
 					if(threshold_value.at(ichannel)==0) continue;
 					gRateGraphsOverBase[ichannel]->SetPoint(gRateGraphsOverBase[ichannel]->GetN(),1.*Thr_DtomV(threshold_value.at(ichannel)-fbaseline.at(ichannel)),1.*rates[ichannel]);

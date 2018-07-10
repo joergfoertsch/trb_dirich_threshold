@@ -624,7 +624,7 @@ void dirich::SetSingleThresholdmV(uint8_t channel ,double thrinmV=30.)
 	int thrinD=Thr_mVtoD(thrinmV);
 	int newthreshold= thrinD==0 ? 0 : baseline+thrinD;
 
-	int ret=WriteSingleThreshold(channel, newthreshold, true);
+	int ret=WriteSingleThreshold(channel, newthreshold, false);
 	if(ret<0){
 			std::cerr << "dirich 0x" << std::hex << gBoardAddress << "'s setting Thresholds failed" << std::endl;
 	} 
@@ -654,7 +654,7 @@ void dirich::SetThresholdsmV(std::array<double,NRCHANNELS> thrarrayinmV)
 	}
 	int ret=0;
 	for(int tries=0;tries<100;++tries){
-		ret=WriteThresholds(thrarrayD, true);
+		ret=WriteThresholds(thrarrayD, false);
 		if(ret!=-1) break;
 	}
 	if(ret<0){
@@ -940,7 +940,7 @@ void dirich::DoThreshScan(uint8_t FirstChannel, uint8_t LastChannel, std::array<
 
 	for(int ipass=0;ipass<NrPasses;++ipass){
 		for(int tries=0;tries<100;++tries){
-			ret=WriteThresholds(OFFTHRESH, true);
+			ret=WriteThresholds(OFFTHRESH, false);
 			if(ret!=-1) break;
 			usleep(THRESHDELAY);
 		}
@@ -1022,7 +1022,7 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, std
 
 	for(int ipass=0;ipass<NrPasses;++ipass){
 		for(int tries=0;tries<100;++tries){
-			ret=WriteThresholds(OFFTHRESH, true);
+			ret=WriteThresholds(OFFTHRESH, false);
 			if(ret!=-1) break;
 			usleep(THRESHDELAY);
 		}
@@ -1046,7 +1046,7 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, std
 				threshold_value.at(ichannel) = (ichannel+ipass)%NrPasses==0 ? fbaseline.at(ichannel)+fnoisewidth.at(ichannel)/4+Thr_mVtoD(addthresh) : 0;
 			}
 			for(int tries=0;tries<100;++tries){
-				ret=WriteThresholds(threshold_value, true);
+				ret=WriteThresholds(threshold_value, false);
 				if(ret!=-1) break;
 				usleep(THRESHDELAY);
 			}

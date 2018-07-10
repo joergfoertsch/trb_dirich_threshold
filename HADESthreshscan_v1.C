@@ -928,16 +928,6 @@ void system_thr_scan(int type=0)
 			std::cerr << "DiRICH " << std::hex << dirichlistitem.first << std::dec << " not initialized! Not switching off TDC" << std::endl;
 			TDC_set.insert(std::pair<uint16_t,int>(dirichlistitem.first,1));
 			continue;
-		}
-		if(dirichlistitem.second->IsJansReadout()){
-			std::cerr << "DiRICH " << std::hex << dirichlistitem.first << std::dec << " has no TDC" << std::endl;
-			TDC_set.insert(std::pair<uint16_t,int>(dirichlistitem.first,2));
-			continue;
-		} 
-		if(dirichlistitem.second->IsSim()){
-			std::cerr << "DiRICH " << std::hex << dirichlistitem.first << std::dec << " is only simulated" << std::endl;
-			TDC_set.insert(std::pair<uint16_t,int>(dirichlistitem.first,2));
-			continue;
 		}	 
 		uint32_t temp_tdc_setting[2];
 		ret=trb_register_read(dirichlistitem.first, 0xc802, temp_tdc_setting, 2); //switch off TDC

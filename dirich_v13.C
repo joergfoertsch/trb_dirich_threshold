@@ -712,7 +712,7 @@ int dirich::ReadScalers(uint32_t* scalervalues, std::chrono::high_resolution_clo
 	// if ( gBoardAddress != buffer[0]) 
 	if ( (ret == NRCHANNELS+1) && (fjans_readout || gBoardAddress == (buffer[0] & 0xffff)) ){
 		for (int i=0;i<NRCHANNELS;i++){
-			scalervalues[i]=buffer[i+1] & 0x7fffffff;
+			scalervalues[i]=buffer[i+1] & 0xfffffff;
 		}
 		return 0;
 	}
@@ -790,9 +790,9 @@ double dirich::GetSingleRate(double delay, uint8_t channel)
 		// std::cout << scaler2 << "\n";
 
 		double exactdelay1=std::chrono::duration_cast<std::chrono::microseconds>(stop1-start1).count() * 1e-6;
-		double rate=scaler2<scaler1?
-			(2<<23)+scaler2-scaler1 : scaler2-scaler1;
-		rate=1.*rate/exactdelay1;
+		uint32_t scaler_diff=scaler2<scaler1?
+			(2<<27)+scaler2-scaler1 : scaler2-scaler1;
+		double rate=1.*rate/exactdelay1;
 		return rate;
 	}
 }
@@ -998,7 +998,7 @@ void dirich::DoThreshScanOverBase(uint8_t FirstChannel, uint8_t LastChannel, std
 		std::cout << std::dec << (int)FirstChannel << " " << (int)LastChannel << " " << ToThrmV.at(0) << " " << MeasureTime << " " << StepSize << " " << NrPasses << std::endl;
 	} 
 	double gMeasureTime_over_temp=3.;
-	int gMeasures = gMeasureTime_over/gMeasureTime_over_temp;
+	int gMeasures = MeasureTime/gMeasureTime_over_temp;
 	int ret;
 	if(fjans_readout){
 		uint32_t scaler_switch[] = {0xffffffff};

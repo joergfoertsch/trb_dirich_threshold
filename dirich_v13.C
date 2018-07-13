@@ -343,26 +343,53 @@ dirich::dirich(uint16_t BoardAddress)
 	for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
 		gRateGraphs[ichannel]=new TGraph();
 		gRateGraphs[ichannel]->SetTitle(
-			Form("Rate graph of dirich 0x%x's channel %i;Threshold;Rate",gBoardAddress,ichannel)
+			Form(
+				"Rate graph of dirich 0x%x's channel %i;Threshold;Rate",
+				gBoardAddress,
+				ichannel
+			)
 		);
 		gRateGraphs[ichannel]->SetName(
-			Form("Rate graph of dirich 0x%x's channel %i",gBoardAddress,ichannel)
+			Form(
+				"Rate graph of dirich 0x%x's channel %i",
+				gBoardAddress,
+				ichannel
+			)
 		);
 
 		gRateGraphsOverBase[ichannel]=new TGraph();
 		gRateGraphsOverBase[ichannel]->SetTitle(
-			Form("Rate graph over baseline of dirich 0x%x's channel %i;Threshold in mV;Rate",gBoardAddress,ichannel)
+			Form(
+
+			
+				"Rate graph over baseline of dirich 0x%x's channel %i;Threshold in mV;Rate",
+				gBoardAddress,
+				ichannel
+			)
 		);
 		gRateGraphsOverBase[ichannel]->SetName(
-			Form("Rate graph over baseline of dirich 0x%x's channel %i",gBoardAddress,ichannel)
+			Form(
+				"Rate graph over baseline of dirich 0x%x's channel %i",
+				gBoardAddress,
+				ichannel
+			)
 		);
 
 		gDiffRateGraphsOverBase[ichannel]=new TGraph();
 		gDiffRateGraphsOverBase[ichannel]->SetTitle(
-			Form("Differentiated rate graph over baseline of dirich 0x%x's channel %i;Threshold in mV;Differentiated rate",gBoardAddress,ichannel)
+			Form(
+				"Differentiated rate graph over baseline of dirich 0x%x's channel %i;"
+				"Threshold in mV;Differentiated rate",
+				gBoardAddress,
+				ichannel
+			)
 		);
 		gDiffRateGraphsOverBase[ichannel]->SetName(
-			Form("Differentiated rate graph over baseline of dirich 0x%x's channel %i",gBoardAddress,ichannel)
+			Form(
+				"Differentiated rate graph over baseline of dirich 0x%x's channel %i",
+				gBoardAddress,
+				ichannel
+			)
 		);
 
 		fbaseline[ichannel]=0;
@@ -718,7 +745,7 @@ int dirich::ReadScalers(uint32_t* scalervalues, std::chrono::system_clock::time_
 			std::cout << "scalers:" << std::endl;
 		}
 		for (int i=0;i<NRCHANNELS;i++){
-			scalervalues[i]=buffer[i+1] & 0xfffffff;
+			scalervalues[i]=buffer[i+1] & 0x7fffffff;
 			if(gdirich_reporting_level>=5){
 				std::cout << std::dec <<scalervalues[i] << " ";
 			}
@@ -765,7 +792,7 @@ double dirich::GetSingleRate(double delay, uint8_t channel)
 	double exactdelay1 =
 	 	1.0e-6*std::chrono::duration_cast<std::chrono::microseconds>(stop1-start1).count();
 	uint32_t scaler_diff=scaler2<scaler1?
-		(2<<27)+scaler2-scaler1 : scaler2-scaler1;
+		(2<<31)+scaler2-scaler1 : scaler2-scaler1;
 	double rate=1.*scaler_diff/exactdelay1;
 	if(gdirich_reporting_level>=5){
 			std::cout 

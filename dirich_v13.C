@@ -838,10 +838,10 @@ double* dirich::GetRates(double delay)
 	 	1.0e-6*std::chrono::duration_cast<std::chrono::microseconds>(stop1-start1).count();
 	for (int i=0; i<NRCHANNELS; i++) {
 		uint32_t scaler_diff=scaler2[i]<scaler1[i]?
-			(2<<27)+scaler2[i]-scaler1[i] : scaler2[i]-scaler1[i];
+			(1<<31)+scaler2[i]-scaler1[i] : scaler2[i]-scaler1[i];
 		double rate=1.*scaler_diff/exactdelay1;
 		ratevalues[i]=rate;
-		if(gdirich_reporting_level>=5){
+		if(gdirich_reporting_level>=4){
 			std::cout 
 				<< exactdelay1 << std::dec 
 				<< " " << scaler2[i] 

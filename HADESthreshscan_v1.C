@@ -1691,6 +1691,7 @@ void setup_scan_parameters_over_thr_mV(
 
 int main(int argc, char* argv[]){
 	std::string loading_file = "";
+	std::string loading_file_threshold = "";
 	std::string save_file = "";
 	// Declare the supported options.
 	po::options_description desc("Allowed options");
@@ -1804,6 +1805,11 @@ int main(int argc, char* argv[]){
 			(
 				"loading-file,f", 
 				po::value<std::string>(&loading_file)->default_value(""), 
+				"File to load thresholds and/or baseline from"
+			)
+			(
+				"loading-file-threshold", 
+				po::value<std::string>(&loading_file_threshold)->default_value(""), 
 				"File to load thresholds and/or baseline from"
 			)
 			(
@@ -2103,9 +2109,11 @@ int main(int argc, char* argv[]){
 	}
 
 	if(vm.count("load-threshold")){
+		if(loading_file_threshold=="")
+			loading_file_threshold=loading_file;
 		for(auto& load_threshold_options : vm["load-threshold"].as<std::vector<std::string>>()){
 			if(load_threshold_options=="0") 
-				load_base(NULL, loading_file,0, 0, 1);
+				load_base(NULL, loading_file_threshold,0, 0, 1);
 			else 
 				load_base(
 					dirichlist.at(
@@ -2117,11 +2125,11 @@ int main(int argc, char* argv[]){
 							16
 						)
 					), 
-				loading_file, 
-				0, 
-				0, 
-				1
-			);
+					loading_file_threshold, 
+					0, 
+					0, 
+					1
+				);
 		}
 	}
 
@@ -2145,8 +2153,8 @@ int main(int argc, char* argv[]){
 								)
 							)
 						),
-					NULL
-				);
+						NULL
+					);
 			}
 		}
 		if(vm.count("draw-scan-above-noise-diff-gr")){

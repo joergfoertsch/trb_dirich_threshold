@@ -1797,7 +1797,7 @@ int main(int argc, char* argv[]){
 			(
 				"load-threshold", 
 				po::value<std::vector<std::string>>()->multitoken(), 
-					"This option loads the threshold from the file specified in --loading-file. "
+					"This option loads the threshold from the file specified in --loading-file-threshold. "
 					"If no file was specified, the latest produced file is choosen. "
 					"One can specify a certain dirich by using this options parameter. "
 					"Be aware that the thresholds are overwriten by --set-threshold"
@@ -1810,7 +1810,7 @@ int main(int argc, char* argv[]){
 			(
 				"loading-file-threshold", 
 				po::value<std::string>(&loading_file_threshold)->default_value(""), 
-				"File to load thresholds and/or baseline from"
+				"File to load thresholds from. If no file is specified, the normal loading-file is used"
 			)
 			(
 				"set-to-noise,n", 

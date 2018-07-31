@@ -720,8 +720,13 @@ int dirich::ReadSingleScaler(
 	// else reg=0xc000+channel;
 	uint32_t buffer[2];
 	TRBAccessMutex.Lock();
-	access_time = std::chrono::system_clock::now();
+	// auto access_time_1 = std::chrono::system_clock::now();
 	ret=trb_register_read(gBoardAddress,reg, buffer, 2);
+	// auto access_time_2 = std::chrono::system_clock::now();
+	// std::cout 
+		// << std::chrono::duration_cast<std::chrono::microseconds>(access_time_1-access_time_2).count()
+	// << std::endl;
+	access_time = std::chrono::system_clock::now();
 	TRBAccessMutex.UnLock();
 	if ( (gBoardAddress != buffer[0]) || (ret != 2) ) 
 		return -1;
@@ -737,8 +742,13 @@ int dirich::ReadScalers(uint32_t* scalervalues, std::chrono::system_clock::time_
 	uint32_t buffer[NRCHANNELS+1];
 	for (int i=0;i<NRCHANNELS+1; i++) buffer[i]=0;
 	TRBAccessMutex.Lock();
-	access_time = std::chrono::system_clock::now();
+	// auto access_time_1 = std::chrono::system_clock::now();
 	ret=trb_register_read_mem(gBoardAddress,reg,0,NRCHANNELS,buffer,NRCHANNELS+1);
+	// auto access_time_2 = std::chrono::system_clock::now();
+	// std::cout 
+		// << std::chrono::duration_cast<std::chrono::microseconds>(access_time_1-access_time_2).count()
+	// << std::endl;
+	access_time = std::chrono::system_clock::now();
 	TRBAccessMutex.UnLock();
 	if ( (ret == NRCHANNELS+1) && (fjans_readout || gBoardAddress == (buffer[0] & 0xffff)) ){
 		if(gdirich_reporting_level>=5){

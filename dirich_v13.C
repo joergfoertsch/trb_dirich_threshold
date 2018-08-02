@@ -652,7 +652,7 @@ void dirich::SetSingleThresholdmV(uint8_t channel ,double thrinmV=30.)
 	int thrinD=Thr_mVtoD(thrinmV);
 	int newthreshold= thrinD==0 ? 0 : baseline+thrinD;
 
-	int ret=WriteSingleThreshold(channel, newthreshold, false);
+	int ret=WriteSingleThreshold(channel, newthreshold, true);
 	if(ret<0){
 			std::cerr 
 			<< "dirich 0x" << std::hex << gBoardAddress 
@@ -684,7 +684,7 @@ void dirich::SetThresholdsmV(std::array<double,NRCHANNELS> thrarrayinmV)
 	}
 	int ret=0;
 	for(int tries=0;tries<100;++tries){
-		ret=WriteThresholds(thrarrayD, false);
+		ret=WriteThresholds(thrarrayD, true);
 		if(ret!=-1) break;
 	}
 	if(ret<0){
@@ -934,7 +934,7 @@ void dirich::DoThreshScan(
 
 	for(int ipass=0;ipass<NrPasses;++ipass){
 		for(int tries=0;tries<100;++tries){
-			ret=WriteThresholds(OFFTHRESH, false);
+			ret=WriteThresholds(OFFTHRESH, true);
 			if(ret!=-1) break;
 			usleep(THRESHDELAY);
 		}
@@ -1041,7 +1041,7 @@ void dirich::DoThreshScanOverBase(
 
 	for(int ipass=0;ipass<NrPasses;++ipass){
 		for(int tries=0;tries<100;++tries){
-			ret=WriteThresholds(OFFTHRESH, false);
+			ret=WriteThresholds(OFFTHRESH, true);
 			if(ret!=-1) break;
 			usleep(THRESHDELAY);
 		}
@@ -1078,7 +1078,7 @@ void dirich::DoThreshScanOverBase(
 				) : 0;
 			}
 			for(int tries=0;tries<100;++tries){
-				ret=WriteThresholds(threshold_value, false);
+				ret=WriteThresholds(threshold_value, true);
 				if(ret!=-1) break;
 				usleep(THRESHDELAY);
 			}

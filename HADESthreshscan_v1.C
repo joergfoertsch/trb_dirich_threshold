@@ -2112,6 +2112,7 @@ int main(int argc, char* argv[]){
 		if(loading_file_threshold=="")
 			loading_file_threshold=loading_file;
 		for(auto& load_threshold_options : vm["load-threshold"].as<std::vector<std::string>>()){
+			std::cout << "loading_file_threshold: " << loading_file_threshold << std::endl;
 			if(load_threshold_options=="0") 
 				load_base(NULL, loading_file_threshold,0, 0, 1);
 			else 

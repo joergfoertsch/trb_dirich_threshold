@@ -56,13 +56,6 @@ private:
 	std::array<uint16_t,NRCHANNELS> fnoisewidth_old;
 	std::array<double,NRCHANNELS> fthresholdmV;
 
-	std::array<uint16_t,NRCHANNELS> fsim_baseline;
-	std::array<uint16_t,NRCHANNELS> fsim_noise_sigma;
-	std::array<uint16_t,NRCHANNELS> fsim_noise_width;
-	std::array<uint16_t,NRCHANNELS> fsim_current_threshold;
-	std::array<uint16_t,NRCHANNELS> fsim_singlephotonpeakposition;
-	std::array<TH1*,NRCHANNELS> fsim_distro;
-
 	int ReadSingleThreshold(uint8_t channel, uint16_t &thrvalue);
 	int ReadThresholds(std::array<uint16_t,NRCHANNELS>& thrarray);
 	int WriteSingleThreshold(uint8_t channel, uint16_t thrvalue, bool check);
@@ -76,8 +69,6 @@ private:
 	int ReadScalers(uint32_t* scalervalues, std::chrono::system_clock::time_point& access_time);
 	// int GetRates(uint32_t* ratevalues, double delay=1);
 
-	bool fsimulate = true;
-	bool fjans_readout = false;
 	int gdirichver = 3;
 
 public:
@@ -716,8 +707,6 @@ int dirich::ReadSingleScaler(
 	if (channel>NRCHANNELS)
 		return -1;
 	uint16_t reg=0xc000+channel;
-	if(fjans_readout) reg=0xdfc0+channel; //readout of Jans implementation!!!!
-	// else reg=0xc000+channel;
 	uint32_t buffer[2];
 	TRBAccessMutex.Lock();
 	// auto access_time_1 = std::chrono::system_clock::now();
@@ -750,7 +739,7 @@ int dirich::ReadScalers(uint32_t* scalervalues, std::chrono::system_clock::time_
 	// << std::endl;
 	access_time = std::chrono::system_clock::now();
 	TRBAccessMutex.UnLock();
-	if ( (ret == NRCHANNELS+1) && (fjans_readout || gBoardAddress == (buffer[0] & 0xffff)) ){
+	if ( (ret == NRCHANNELS+1) && gBoardAddress == (buffer[0] & 0xffff) ){
 		if(gdirich_reporting_level>=5){
 			std::cout << "scalers:" << std::endl;
 		}

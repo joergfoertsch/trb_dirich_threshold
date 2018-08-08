@@ -10,9 +10,9 @@ Before using the program you need to set the correct LD_LIBRARY_PATH via ". setL
 The usage of the program can be seen by using the --help /-h command
 Examples of standard tasks are:
 
-./HADESthreshscan_v1.C -b 0 -t 0 50
-./HADESthreshscan_v1.C -l 0 -t 0 50
-./HADESthreshscan_v1.C -f path/to/threshold.thr -l 0 -t 0 50
+./HADESthreshscan_v1 -b 0 -t 0 50
+./HADESthreshscan_v1 -l 0 -t 0 50
+./HADESthreshscan_v1 -f path/to/threshold.thr -l 0 -t 0 50
 The -b/--baseline-scan performs a standard baselinescan. 
 The option-parameter specifies which DiRICHes shall be scanned.
 Here 0 specifies, that all DiRICHes shall be scanned.

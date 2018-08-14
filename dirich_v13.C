@@ -17,7 +17,7 @@
 //dirich handling routines
 //**************************************
 // Channel Numbers:
-// 0-31: TDC input channels (same index as for threshold setting)
+// 0-31: TDC input ichannels (same index as for threshold setting)
 
 const size_t BUFFER_SIZE4mb = 4194304;	/* 4MByte */
 static uint32_t buffer4mb[4194304];
@@ -26,13 +26,13 @@ static uint32_t buffer4mb[4194304];
 static std::mt19937_64 rnd;
 
 #ifndef NCH
-	const int NRCHANNELS = 32;			 //Nr of TDC channels in dirich
-	// const int NRCHANNELS = 4;			 //Nr of TDC channels in dirich
+	const int NRCHANNELS = 32;			 //Nr of TDC ichannels in dirich
+	const int CHPCHAIN = 16;			 //Nr of TDC ichannels pre dirich-chain
 	#define NCH
 #endif
 
 #ifndef THC
-	const int OFFTHRESH = 1000; //Value to switch off channel
+	const int OFFTHRESH = 1000; //Value to switch off ichannel
 	const int THRESHDELAY = 100000; //Delay [mus] for thresh change to succeed
 	#define THC
 #endif
@@ -55,14 +55,15 @@ private:
 	std::array<uint16_t,NRCHANNELS> fnoisewidth;
 	std::array<uint16_t,NRCHANNELS> fnoisewidth_old;
 	std::array<double,NRCHANNELS> fthresholdmV;
+	std::array<int,NRCHANNELS> forientation;
 
-	int ReadSingleThreshold(uint8_t channel, uint16_t &thrvalue);
+	int ReadSingleThreshold(uint8_t ichannel, uint16_t &thrvalue);
 	int ReadThresholds(std::array<uint16_t,NRCHANNELS>& thrarray);
-	int WriteSingleThreshold(uint8_t channel, uint16_t thrvalue, bool check);
+	int WriteSingleThreshold(uint8_t ichannel, uint16_t thrvalue, bool check);
 	int WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check);
 	int WriteThresholds(uint16_t thrvalue, bool check);
 	int ReadSingleScaler(
-		uint8_t channel, 
+		uint8_t ichannel, 
 		uint32_t &scalervalue, 
 		std::chrono::system_clock::time_point& access_time
 	);
@@ -85,34 +86,34 @@ public:
 
 	// setter functions
 	//threshold
-	void SetSingleThresholdmV(uint8_t channel, double thrinmV);
+	void SetSingleThresholdmV(uint8_t ichannel, double thrinmV);
 	void SetThresholdsmV(std::array<double,NRCHANNELS> thrarrayinmV);
 	void SetThresholdsmV(double thrinmV);
 	//baseline
-	void SetSingleBaseline(uint8_t channel, uint16_t baseline) {
-		if(channel<NRCHANNELS) 
-			fbaseline[channel] = baseline; 
+	void SetSingleBaseline(uint8_t ichannel, uint16_t baseline) {
+		if(ichannel<NRCHANNELS) 
+			fbaseline[ichannel] = baseline; 
 		else 
-			std::cerr << "Channel: " << channel << " not specified" << std::endl;
+			std::cerr << "Channel: " << ichannel << " not specified" << std::endl;
 	}
-	void SetSingleBaseline_old(uint8_t channel, uint16_t baseline) {
-		if(channel<NRCHANNELS) 
-			fbaseline_old[channel] = baseline; 
+	void SetSingleBaseline_old(uint8_t ichannel, uint16_t baseline) {
+		if(ichannel<NRCHANNELS) 
+			fbaseline_old[ichannel] = baseline; 
 		else 
-			std::cerr << "Channel: " << channel << " not specified" << std::endl;
+			std::cerr << "Channel: " << ichannel << " not specified" << std::endl;
 	}
 	//noisewidth
-	void SetSingleNoisewidth(uint8_t channel, uint16_t noisewidth) {
-		if(channel<NRCHANNELS) 
-			fnoisewidth[channel] = noisewidth; 
+	void SetSingleNoisewidth(uint8_t ichannel, uint16_t noisewidth) {
+		if(ichannel<NRCHANNELS) 
+			fnoisewidth[ichannel] = noisewidth; 
 		else 
-			std::cerr << "Channel: " << channel << " not specified" << std::endl;
+			std::cerr << "Channel: " << ichannel << " not specified" << std::endl;
 	}
-	void SetSingleNoisewidth_old(uint8_t channel, uint16_t noisewidth) {
-		if(channel<NRCHANNELS) 
-			fnoisewidth_old[channel] = noisewidth; 
+	void SetSingleNoisewidth_old(uint8_t ichannel, uint16_t noisewidth) {
+		if(ichannel<NRCHANNELS) 
+			fnoisewidth_old[ichannel] = noisewidth; 
 		else 
-			std::cerr << "Channel: " << channel << " not specified" << std::endl;
+			std::cerr << "Channel: " << ichannel << " not specified" << std::endl;
 	}
 
 	// getter functions
@@ -120,54 +121,54 @@ public:
 	uint16_t GetBoardAddress() {return gBoardAddress;} //board address
 	uint64_t GetBoardUID() {return gBoardUID;} //board address
 
-	double	GetSingleRate(double delay=1, uint8_t channel=0); //rates from scaler
+	double	GetSingleRate(double delay=1, uint8_t ichannel=0); //rates from scaler
 	double* GetRates(double delay=1); //rates from scaler
 
 
-	double GetSingleThresholdmV(uint8_t channel) {
-		if(channel<NRCHANNELS) 
-			return fthresholdmV[channel]; 
+	double GetSingleThresholdmV(uint8_t ichannel) {
+		if(ichannel<NRCHANNELS) 
+			return fthresholdmV[ichannel]; 
 		else{
-			std::cerr << "Channel: " << channel << " not specified" << std::endl; 
+			std::cerr << "Channel: " << ichannel << " not specified" << std::endl; 
 			return 0.;
 		}
 	}//threshold
 	std::array<double,NRCHANNELS> GetThresholdsmV() {return fthresholdmV;}
 
-	uint16_t GetSingleBaseline(uint8_t channel) {
-		if(channel<NRCHANNELS) 
-			return fbaseline[channel]; 
+	uint16_t GetSingleBaseline(uint8_t ichannel) {
+		if(ichannel<NRCHANNELS) 
+			return fbaseline[ichannel]; 
 		else{
-			std::cerr << "Channel: " << channel << " not specified" << std::endl; 
+			std::cerr << "Channel: " << ichannel << " not specified" << std::endl; 
 			return 0;
 		}
 	}//baseline
 	std::array<uint16_t,NRCHANNELS> GetBaselines() {return fbaseline;}
 
-	uint16_t GetSingleBaseline_old(uint8_t channel) {
-		if(channel<NRCHANNELS) 
-			return fbaseline_old[channel]; 
+	uint16_t GetSingleBaseline_old(uint8_t ichannel) {
+		if(ichannel<NRCHANNELS) 
+			return fbaseline_old[ichannel]; 
 		else{
-			std::cerr << "Channel: " << channel << " not specified" << std::endl; 
+			std::cerr << "Channel: " << ichannel << " not specified" << std::endl; 
 			return 0;
 		}
 	}//baseline
 	std::array<uint16_t,NRCHANNELS> GetBaselines_old() {return fbaseline_old;}
 
-	uint16_t GetSingleNoisewidth(uint8_t channel) {
-		if(channel<NRCHANNELS) 
-			return fnoisewidth[channel]; 
+	uint16_t GetSingleNoisewidth(uint8_t ichannel) {
+		if(ichannel<NRCHANNELS) 
+			return fnoisewidth[ichannel]; 
 		else{
-			std::cerr << "Channel: " << channel << " not specified" << std::endl; 
+			std::cerr << "Channel: " << ichannel << " not specified" << std::endl; 
 			return 0;
 		}
 	}//noisewidth
 	std::array<uint16_t,NRCHANNELS> GetNoisewidths() {return fnoisewidth;}
 
-	uint16_t GetSingleNoisewidth_old(uint8_t channel) {
-		if(channel<NRCHANNELS) return fnoisewidth_old[channel]; 
+	uint16_t GetSingleNoisewidth_old(uint8_t ichannel) {
+		if(ichannel<NRCHANNELS) return fnoisewidth_old[ichannel]; 
 		else{
-			std::cerr << "Channel: " << channel << " not specified" << std::endl; 
+			std::cerr << "Channel: " << ichannel << " not specified" << std::endl; 
 			return 0;
 		}
 	}//noisewidth
@@ -213,8 +214,8 @@ public:
 		int NrPasses
 	);
 	void MakeGraphsOverBase ( );
-	void MakeGraphsOverBase ( uint16_t ToThr);
 	void MakeDiffGraphsOverBase ( );
+	void MakeDiffGraphsOverBase (int case_type);
 	// void MakeDiffGraphsOverBase ( uint16_t FromThr, uint16_t ToThr);
 	void FindMinThreshScanOverBase(double gThreshold_finding_method);
 
@@ -228,17 +229,17 @@ public:
 
 
 	// settings for threshold measurement
-	double 	 gMeasureTime; 	 //Time [s] to determine rate
-	int 	 gLowerEdge;		 //start of thresholdscan
-	int 	 gUpperEdge;		 //end of thresholdscan
-	int 	 gStepsize; 	 //end of thresholdscan
-	int 	 gNrPasses; 	 //Nr of passes to scan all channels
+	double gMeasureTime; 	 											//Time [s] to determine rate
+	std::array<uint16_t,NRCHANNELS> gLowerEdge;		 	//start of thresholdscan
+	std::array<uint16_t,NRCHANNELS> gUpperEdge;		 	//end of thresholdscan
+	int gStepsize; 	 														//stepsize fr thresholdscan
+	int gNrPasses; 	 														//Nr of passes to scan all ichannels
 
 	double	 gMeasureTime_over; //Time [s] to determine rate
-	int gLowerEdge_over;	//end of thresholdscan
-	int gUpperEdge_over;	//end of thresholdscan
-	int gStepsize_over;	 //end of thresholdscan
-	int gNrPasses_over;	 //Nr of passes to scan all channels
+	int gLowerEdge_over;	//end of thresholdscan over baseline
+	int gUpperEdge_over;	//end of thresholdscan over baseline
+	int gStepsize_over;	 	//stepsize for thresholdscan
+	int gNrPasses_over;	 	//Nr of passes to scan all ichannels
 
 	double	 gThreshold_finding_method; //Method to find perfect threshold: 
 																			//0: searches for the minimum in the differentiated spectrum or for the minimal gradient 
@@ -292,11 +293,11 @@ dirich::dirich(uint16_t BoardAddress)
 	uint32_t cmd = 0x0 | 0xff << 24;
 	uint32_t c[] = {cmd,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0x10001};
 
-	std::array<uint32_t,18> ret_c;
+	std::array<uint32_t,CHPCHAIN+2> ret_c;
 	int ret1=0, ret2=0;
 	for(int failed=0;failed<100;++failed){
 		TRBAccessMutex.Lock();
-		ret1=trb_register_write_mem(gBoardAddress,0xd400,0,c,18);
+		ret1=trb_register_write_mem(gBoardAddress,0xd400,0,c,CHPCHAIN+2);
 		TRBAccessMutex.UnLock();
 		// if(ret==-1) continue;
 		usleep(100);
@@ -304,7 +305,8 @@ dirich::dirich(uint16_t BoardAddress)
 		TRBAccessMutex.Lock();
 		ret2=trb_register_read(gBoardAddress,0xd412,ret_c.data(),2);
 		TRBAccessMutex.UnLock();	
-		if(ret1!=-1 && ret2==2 && (ret_c.at(1) & 0xff00) == 0x100) break;
+		if(ret1!=-1 && ret2==2 && (ret_c.at(1) & 0xff00) == 0x100) break; 
+		//check if correct version (for dirich 0x100) is on the side FPGA
 	}
 	if(ret1==-1 || ret2!=2 || (ret_c.at(1) & 0xff00) != 0x100){
 			std::cerr 
@@ -320,8 +322,8 @@ dirich::dirich(uint16_t BoardAddress)
 	// gBoardAddress=BoardAddress;
 	gdirich_reporting_level=0;
 	gMeasureTime=.3;
-	gLowerEdge=28000;
-	gUpperEdge=32000;
+	gLowerEdge.fill(28000);
+	gUpperEdge.fill(32000);
 	gStepsize=75;
 	// gStepsize=25;
 	gNrPasses=1;
@@ -331,93 +333,96 @@ dirich::dirich(uint16_t BoardAddress)
 	gStepsize_over=10;
 	gNrPasses_over=1;
 	gThreshold_finding_method=0;
-	for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
-		gRateGraphs[ichannel]=new TGraph();
-		gRateGraphs[ichannel]->SetTitle(
+	for (int iichannel=0; iichannel<NRCHANNELS; iichannel++) {
+		gRateGraphs.at(iichannel)=new TGraph();
+		gRateGraphs.at(iichannel)->SetTitle(
 			Form(
-				"Rate graph of dirich 0x%x's channel %i;Threshold;Rate",
+				"Rate graph of dirich 0x%x's ichannel %i;Threshold;Rate",
 				gBoardAddress,
-				ichannel
+				iichannel
 			)
 		);
-		gRateGraphs[ichannel]->SetName(
+		gRateGraphs.at(iichannel)->SetName(
 			Form(
-				"Rate graph of dirich 0x%x's channel %i",
+				"Rate graph of dirich 0x%x's ichannel %i",
 				gBoardAddress,
-				ichannel
+				iichannel
 			)
 		);
 
-		gRateGraphsOverBase[ichannel]=new TGraph();
-		gRateGraphsOverBase[ichannel]->SetTitle(
+		gRateGraphsOverBase.at(iichannel)=new TGraph();
+		gRateGraphsOverBase.at(iichannel)->SetTitle(
 			Form(
 
 			
-				"Rate graph over baseline of dirich 0x%x's channel %i;Threshold in mV;Rate",
+				"Rate graph over baseline of dirich 0x%x's ichannel %i;Threshold in mV;Rate",
 				gBoardAddress,
-				ichannel
+				iichannel
 			)
 		);
-		gRateGraphsOverBase[ichannel]->SetName(
+		gRateGraphsOverBase.at(iichannel)->SetName(
 			Form(
-				"Rate graph over baseline of dirich 0x%x's channel %i",
+				"Rate graph over baseline of dirich 0x%x's ichannel %i",
 				gBoardAddress,
-				ichannel
+				iichannel
 			)
 		);
 
-		gDiffRateGraphsOverBase[ichannel]=new TGraph();
-		gDiffRateGraphsOverBase[ichannel]->SetTitle(
+		gDiffRateGraphsOverBase.at(iichannel)=new TGraph();
+		gDiffRateGraphsOverBase.at(iichannel)->SetTitle(
 			Form(
-				"Differentiated rate graph over baseline of dirich 0x%x's channel %i;"
+				"Differentiated rate graph over baseline of dirich 0x%x's ichannel %i;"
 				"Threshold in mV;Differentiated rate",
 				gBoardAddress,
-				ichannel
+				iichannel
 			)
 		);
-		gDiffRateGraphsOverBase[ichannel]->SetName(
+		gDiffRateGraphsOverBase.at(iichannel)->SetName(
 			Form(
-				"Differentiated rate graph over baseline of dirich 0x%x's channel %i",
+				"Differentiated rate graph over baseline of dirich 0x%x's ichannel %i",
 				gBoardAddress,
-				ichannel
+				iichannel
 			)
 		);
 
-		fbaseline[ichannel]=0;
-		fbaseline_old[ichannel]=0;
-		fnoisewidth[ichannel]=0;
-		fnoisewidth_old[ichannel]=0;
-		fthresholdmV[ichannel]=0.;
+		fbaseline.at(iichannel) = 0;
+		fbaseline_old.at(iichannel) = 0;
+		fnoisewidth.at(iichannel) = 0;
+		fnoisewidth_old.at(iichannel) = 0;
+		fthresholdmV.at(iichannel) = 0.;
+		forientation.at(iichannel) = 
+		iichannel%2==0 ?
+		1 : 1; //to cope with different polarities in PADIWA
 	}
 	return;
 }
 
 dirich::~dirich()
 {
-	for (int i=0; i<NRCHANNELS; i++) {
-		if(gRateGraphs[i]) delete gRateGraphs[i];
-		if(gDiffRateGraphsOverBase[i]) delete gDiffRateGraphsOverBase[i];
+	for (int iichannel=0; iichannel<NRCHANNELS; iichannel++) {
+		if(gRateGraphs.at(iichannel)) delete gRateGraphs.at(iichannel);
+		if(gDiffRateGraphsOverBase.at(iichannel)) delete gDiffRateGraphsOverBase.at(iichannel);
 	}
 }
 
-int dirich::ReadSingleThreshold(uint8_t channel, uint16_t& thrvalue)
+int dirich::ReadSingleThreshold(uint8_t ichannel, uint16_t& thrvalue)
 {
-	if (channel>NRCHANNELS-1)
+	if (ichannel>NRCHANNELS-1)
 		return -1;
 	int ret;
 	int reg;
-	uint8_t real_channel;
+	uint8_t real_ichannel;
 	if(gdirichver==0){
-		reg=0xa000+31-channel; //old firwmare
+		reg=0xa000+31-ichannel; //old firwmare
 	}
 	if(gdirichver==1){
-		reg=0xa000+channel; //new firwmare 
+		reg=0xa000+ichannel; //new firwmare 
 	}
 	if(gdirichver==2){
-		real_channel = channel%16+16;
+		real_ichannel = ichannel%CHPCHAIN+CHPCHAIN;
 	}
 	if(gdirichver==3){
-		real_channel = channel%16;
+		real_ichannel = ichannel%CHPCHAIN;
 	}
 	if(gdirichver<=1){
 		uint32_t buffer[2];
@@ -431,12 +436,12 @@ int dirich::ReadSingleThreshold(uint8_t channel, uint16_t& thrvalue)
 		return 0;
 	}	
 	else{
-		uint32_t cmd = 0x0 << 20 | real_channel << 24 | thrvalue << 0;
+		uint32_t cmd = 0x0 << 20 | real_ichannel << 24 | thrvalue << 0;
 		//evtl. sind auch mehrere Kanäle auf einmal lesbar.
-		uint32_t c[] = {cmd,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,(uint32_t)channel/16+1,0x10001}; 
+		uint32_t c[] = {cmd,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,(uint32_t)ichannel/CHPCHAIN+1,0x10001}; 
 		for(int failed=0;failed<100;++failed){
 			TRBAccessMutex.Lock();
-			ret=trb_register_write_mem(gBoardAddress,0xd400,0,c,18);
+			ret=trb_register_write_mem(gBoardAddress,0xd400,0,c,CHPCHAIN+2);
 			TRBAccessMutex.UnLock();
 			if(ret!=-1) break;
 			usleep(1000);
@@ -450,8 +455,8 @@ int dirich::ReadSingleThreshold(uint8_t channel, uint16_t& thrvalue)
 		if(gdirich_reporting_level>3)
 			std::cout 
 				<< std::hex << gBoardAddress 
-				<< " " << std::dec << (int)channel 
-				<< " " << (int)real_channel << std::hex 
+				<< " " << std::dec << (int)ichannel 
+				<< " " << (int)real_ichannel << std::hex 
 				<< " " << ret_c[0] 
 				<< " " << thrvalue 
 				<< std::endl;
@@ -461,23 +466,23 @@ int dirich::ReadSingleThreshold(uint8_t channel, uint16_t& thrvalue)
 
 int dirich::ReadThresholds(std::array<uint16_t,NRCHANNELS>& thrarray){
 	int ret=0;
-	for(uint8_t ichannel=0;ichannel<NRCHANNELS;++ichannel){
-		ret=ReadSingleThreshold(ichannel,thrarray.at(ichannel));
-		// std::cout << std::hex << thrarray.at(ichannel) << std::endl;
+	for(uint8_t iichannel=0;iichannel<NRCHANNELS;++iichannel){
+		ret=ReadSingleThreshold(iichannel,thrarray.at(iichannel));
+		// std::cout << std::hex << thrarray.at(iichannel) << std::endl;
 		if(ret<0) return ret;
 	}
 	return ret;
 }
 
-int dirich::WriteSingleThreshold(uint8_t channel, uint16_t thrvalue, bool check) 
+int dirich::WriteSingleThreshold(uint8_t ichannel, uint16_t thrvalue, bool check) 
 {
-	if (channel>NRCHANNELS-1)
+	if (ichannel>NRCHANNELS-1)
 		return -1;
 	int ret=0;
 
 	if(gdirichver==1){
-//	 int reg=0xa000+31-channel; old firwmare
-		int reg=0xa000+channel; //new firwmare 
+//	 int reg=0xa000+31-ichannel; old firwmare
+		int reg=0xa000+ichannel; //new firwmare 
 		TRBAccessMutex.Lock();
 		ret=trb_register_write(gBoardAddress, reg, (uint32_t)thrvalue);
 		TRBAccessMutex.UnLock();
@@ -485,16 +490,16 @@ int dirich::WriteSingleThreshold(uint8_t channel, uint16_t thrvalue, bool check)
 	}
 	else{
 		for(int failed=0;failed<100;++failed){
-			uint8_t real_channel = channel%16+16*abs(gdirichver-3);
-			uint32_t cmd = 0x8 << 20 | real_channel << 24 | thrvalue <<0;
-			std::array<uint32_t,18> c = {
+			uint8_t real_ichannel = ichannel%CHPCHAIN+CHPCHAIN*abs(gdirichver-3);
+			uint32_t cmd = 0x8 << 20 | real_ichannel << 24 | thrvalue <<0;
+			std::array<uint32_t,CHPCHAIN+2> c = {
 				cmd,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-				(uint32_t)(channel/16+1),
+				(uint32_t)(ichannel/CHPCHAIN+1),
 				0x00001
 			}; 
 
 			TRBAccessMutex.Lock();
-			ret=trb_register_write_mem(gBoardAddress,0xd400,0,c.data(),18);
+			ret=trb_register_write_mem(gBoardAddress,0xd400,0,c.data(),CHPCHAIN+2);
 			TRBAccessMutex.UnLock();
 			if(ret!=-1) break;
 			usleep(1000);
@@ -502,7 +507,7 @@ int dirich::WriteSingleThreshold(uint8_t channel, uint16_t thrvalue, bool check)
 		if(ret==-1) return ret;
 		if(check){
 			uint16_t set_threshold;
-			ret=ReadSingleThreshold(channel, set_threshold);
+			ret=ReadSingleThreshold(ichannel, set_threshold);
 			if(ret==-1) return ret;
 			if(gdirich_reporting_level>2) 
 				std::cout 
@@ -518,8 +523,7 @@ int dirich::WriteSingleThreshold(uint8_t channel, uint16_t thrvalue, bool check)
 int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check)
 {
 	int ret;
-	std::array<uint32_t,18> cmd1;
-	std::array<uint32_t,18> cmd2;
+	std::array<std::array<uint32_t,CHPCHAIN+2>,NRCHANNELS/CHPCHAIN> cmd;
 	if(gdirichver==1){
 		uint16_t reg=0xa000+32-NRCHANNELS;
 		uint32_t buffer[NRCHANNELS];
@@ -532,61 +536,44 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 		if(ret==-1) return ret;
 	}
 	else{
-		uint counter=0;
-		for(int channel=0;channel<16;++channel){
-			if(thrarray.at(channel)){
-				uint8_t real_channel = channel%16+16*abs(gdirichver-3);
-				cmd1.at(counter) = 0x8 << 20 | real_channel << 24 | thrarray.at(channel) <<0;
-				counter++;
+		std::array<uint,NRCHANNELS/CHPCHAIN> counter;
+		counter.fill(0);
+		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
+			if(thrarray.at(ichannel)){
+				uint8_t real_channel = ichannel%CHPCHAIN+CHPCHAIN*abs(gdirichver-3);
+				cmd.at(ichannel/CHPCHAIN).at(counter.at(ichannel/CHPCHAIN)) = 
+					0x8 << 20 | real_channel << 24 | thrarray.at(ichannel) <<0;
+				counter.at(ichannel/CHPCHAIN)++;
 			}
 		}
-		cmd1.at(16)=1; 
-		cmd1.at(17)=0x00000 | counter; 
+		for(int ichain=0;ichain<NRCHANNELS/CHPCHAIN;++ichain){
+			cmd.at(ichain).at(CHPCHAIN)=ichain+1; 
+			cmd.at(ichain).at(CHPCHAIN+1)=0x00000 | counter.at(ichain); 
 
-		counter=0;
-		for(int channel=16;channel<32;++channel){
-			if(thrarray.at(channel)){
-				uint8_t real_channel = channel%16+16*abs(gdirichver-3);
-				cmd2.at(counter) = 0x8 << 20 | real_channel << 24 | thrarray.at(channel) <<0;
-				counter++;
+			for(int failed=0;failed<100;++failed){
+				TRBAccessMutex.Lock();
+				ret=trb_register_write_mem(gBoardAddress,0xd400,0,cmd.at(ichain).data(),CHPCHAIN+2);
+				TRBAccessMutex.UnLock();
+
+				if(ret!=-1) break;
+				usleep(1000);
 			}
-		}
-		cmd2.at(16)=2;
-		cmd2.at(17)=0x00000 | counter;
+			if(ret==-1) return ret;
 
-		for(int failed=0;failed<100;++failed){
-			TRBAccessMutex.Lock();
-			ret=trb_register_write_mem(gBoardAddress,0xd400,0,cmd1.data(),18);
-			TRBAccessMutex.UnLock();
-
-			if(ret!=-1) break;
-			usleep(1000);
 		}
-		if(ret==-1) return ret;
-
-		for(int failed=0;failed<100;++failed){
-			TRBAccessMutex.Lock();
-			ret=trb_register_write_mem(gBoardAddress,0xd400,0,cmd2.data(),18);
-			TRBAccessMutex.UnLock();
-			if(ret!=-1) break;
-			usleep(1000);
-		}
-		if(ret==-1) return ret;
 	}
 
 	if(gdirich_reporting_level>2){
 		std::cout << "wanted" << std::endl;
-		for(auto& c_iterator : cmd1){
-			std::cout<< std::hex << (c_iterator & 0xffff) << " ";
-		}
-		for(auto& c_iterator : cmd2){
-			std::cout<< std::hex << (c_iterator & 0xffff) << " ";
+		for(auto& chain_it : cmd){
+			for(auto& c_iterator : chain_it){
+				std::cout << std::hex << (c_iterator & 0xffff) << " ";
+			}
 		}
 		std::cout << std::endl;
 	}
 
 	if(check){
-		// usleep(THRESHDELAY);
 		std::array<uint16_t, NRCHANNELS> set_thresholds;
 		ret=ReadThresholds(set_thresholds);
 		if(ret==-1) return ret;
@@ -597,15 +584,15 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 			}
 			std::cout << std::endl;
 		}
-		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-			if(thrarray.at(ichannel)!=0 && abs(thrarray.at(ichannel)-set_thresholds.at(ichannel))>0){
-			// if(thrarray.at(ichannel)!=0 && abs(thrarray.at(ichannel)-set_thresholds.at(ichannel))>2){
+		for(int iichannel=0;iichannel<NRCHANNELS;++iichannel){
+			if(thrarray.at(iichannel)!=0 && abs(thrarray.at(iichannel)-set_thresholds.at(iichannel))>0){
+			// if(thrarray.at(iichannel)!=0 && abs(thrarray.at(iichannel)-set_thresholds.at(iichannel))>2){
 				if(gdirich_reporting_level>2){
 					std::cerr 
 						<< "not the same Threshold " 
-						<< std::dec << ichannel 
-						<< " " << std::hex << thrarray.at(ichannel) 
-						<< " " << set_thresholds.at(ichannel) 
+						<< std::dec << iichannel 
+						<< " " << std::hex << thrarray.at(iichannel) 
+						<< " " << set_thresholds.at(iichannel) 
 						<< std::endl;
 				}
 				return -1;
@@ -624,58 +611,60 @@ int dirich::WriteThresholds(uint16_t thrvalue, bool check)
 	return ret;
 }
 
-void dirich::SetSingleThresholdmV(uint8_t channel ,double thrinmV=30.)
+void dirich::SetSingleThresholdmV(uint8_t ichannel ,double thrinmV=30.)
 {
-	if(channel>=NRCHANNELS){
-		std::cerr << "Channel: " << std::dec << channel << " not specified" << std::endl;
+	if(ichannel>=NRCHANNELS){
+		std::cerr << "Channel: " << std::dec << ichannel << " not specified" << std::endl;
 		return;
 	}
-	int baseline=fbaseline[channel];
+	int baseline=fbaseline[ichannel];
 	if(baseline==0){
 		std::cerr 
 			<< "dirich 0x" 
 			<< std::hex << gBoardAddress 
-			<< "'s channel: " << std::dec << unsigned(channel) 
+			<< "'s ichannel: " << std::dec << unsigned(ichannel) 
 			<< " has no baseline! (baseline==0)" 
 			<< std::endl;
 		return;
 	} 
-	int thrinD=Thr_mVtoD(thrinmV);
-	int newthreshold= thrinD==0 ? 0 : baseline+thrinD;
+	int newthreshold = thrinmV==0 ? 0 : baseline+forientation.at(ichannel)+Thr_mVtoD(thrinmV);
 
-	int ret=WriteSingleThreshold(channel, newthreshold, true);
+	int ret=WriteSingleThreshold(ichannel, newthreshold, false);
 	if(ret<0){
 			std::cerr 
 			<< "dirich 0x" << std::hex << gBoardAddress 
 			<< "'s setting Thresholds failed" 
 			<< std::endl;
 	} 
-	fthresholdmV.at(channel)=thrinmV;
+	fthresholdmV.at(ichannel) = thrinmV;
 
 }
 
 void dirich::SetThresholdsmV(std::array<double,NRCHANNELS> thrarrayinmV)
 {
 	std::array<uint16_t,NRCHANNELS> thrarrayD;
-	for(int ichannel=0; ichannel<NRCHANNELS;++ichannel){
-		if(fbaseline.at(ichannel)==0){
+	for(int iichannel=0; iichannel<NRCHANNELS;++iichannel){
+		if(fbaseline.at(iichannel)==0){
 			std::cerr 
 			<< "dirich 0x" << std::hex << gBoardAddress 
-			<< "'s channel: " << std::dec << unsigned(ichannel) 
+			<< "'s ichannel: " << std::dec << unsigned(iichannel) 
 			<< " has no baseline! (baseline==0)" 
 			<< std::endl;
-	 		thrarrayD.at(ichannel)=0;
+	 		thrarrayD.at(iichannel)=0;
 	 	}
 	 	else{
-		 	if(thrarrayinmV.at(ichannel)!=0)
-				thrarrayD.at(ichannel)=Thr_mVtoD(thrarrayinmV.at(ichannel))+fbaseline.at(ichannel);
+		 	if(thrarrayinmV.at(iichannel)!=0)
+				thrarrayD.at(iichannel) = 
+					forientation.at(iichannel)
+						*Thr_mVtoD(thrarrayinmV.at(iichannel))
+					+fbaseline.at(iichannel);
 			else 
-				thrarrayD.at(ichannel)=0;
+				thrarrayD.at(iichannel) = 0;
 		}
 	}
 	int ret=0;
 	for(int tries=0;tries<100;++tries){
-		ret=WriteThresholds(thrarrayD, true);
+		ret=WriteThresholds(thrarrayD, false);
 		if(ret!=-1) break;
 	}
 	if(ret<0){
@@ -698,15 +687,16 @@ void dirich::SetThresholdsmV(double thrinmV=30.)
 
 
 int dirich::ReadSingleScaler(
-	uint8_t channel, 
+	uint8_t ichannel, 
 	uint32_t& scalervalue, 
 	std::chrono::system_clock::time_point& access_time
 )
 {
 	int ret;
-	if (channel>NRCHANNELS)
+	if (ichannel>NRCHANNELS)
 		return -1;
-	uint16_t reg=0xc000+channel;
+	uint16_t reg=0xc000+ichannel;
+	// else reg=0xc000+ichannel;
 	uint32_t buffer[2];
 	TRBAccessMutex.Lock();
 	// auto access_time_1 = std::chrono::system_clock::now();
@@ -733,11 +723,11 @@ int dirich::ReadScalers(uint32_t* scalervalues, std::chrono::system_clock::time_
 	TRBAccessMutex.Lock();
 	// auto access_time_1 = std::chrono::system_clock::now();
 	ret=trb_register_read_mem(gBoardAddress,reg,0,NRCHANNELS,buffer,NRCHANNELS+1);
+	access_time = std::chrono::system_clock::now();
 	// auto access_time_2 = std::chrono::system_clock::now();
 	// std::cout 
 		// << std::chrono::duration_cast<std::chrono::microseconds>(access_time_1-access_time_2).count()
 	// << std::endl;
-	access_time = std::chrono::system_clock::now();
 	TRBAccessMutex.UnLock();
 	if ( (ret == NRCHANNELS+1) && gBoardAddress == (buffer[0] & 0xffff) ){
 		if(gdirich_reporting_level>=5){
@@ -759,7 +749,7 @@ int dirich::ReadScalers(uint32_t* scalervalues, std::chrono::system_clock::time_
 	}
 }
 
-double dirich::GetSingleRate(double delay, uint8_t channel)
+double dirich::GetSingleRate(double delay, uint8_t ichannel)
 {
 	int ret=-1;
 	uint32_t scaler1;
@@ -768,7 +758,7 @@ double dirich::GetSingleRate(double delay, uint8_t channel)
 	std::chrono::system_clock::time_point start1;
 	for(int iterator=0;iterator<100;++iterator){
 		if(ret>=0) break;
-		ret=ReadSingleScaler(channel,scaler1,start1);
+		ret=ReadSingleScaler(ichannel,scaler1,start1);
 		// std::cout << iterator << "\t";
 		if(iterator==99) printf("Error reading start_scalers !\n");
 	}
@@ -781,7 +771,7 @@ double dirich::GetSingleRate(double delay, uint8_t channel)
 	std::chrono::system_clock::time_point stop1;
 	for(int iterator=0;iterator<100;++iterator){
 		if(ret>=0) break;
-		ret=ReadSingleScaler(channel,scaler2,stop1);
+		ret=ReadSingleScaler(ichannel,scaler2,stop1);
 		// std::cout << iterator << "\t";
 		if(iterator==99) printf("Error reading end_scalers !\n");
 	}
@@ -810,7 +800,7 @@ double* dirich::GetRates(double delay)
 	int ret=-1;
 	uint32_t scaler1[NRCHANNELS];
 	uint32_t scaler2[NRCHANNELS];
-	double* ratevalues = (double*) calloc(NRCHANNELS, sizeof(double*));
+	double* ratevalues = (double*) calloc(NRCHANNELS, sizeof(double));
 	GetRateMutex.Lock();
 	std::chrono::system_clock::time_point start1;
 	for(int iterator=0;iterator<100;++iterator){
@@ -854,17 +844,11 @@ double* dirich::GetRates(double delay)
 }
 
 void dirich::DoThreshScan(){
-	std::array<uint16_t,NRCHANNELS> gLowerEdge_array;
-	for(auto& one_gLowerEdge_array : gLowerEdge_array)
-		one_gLowerEdge_array=gLowerEdge;
-	std::array<uint16_t,NRCHANNELS> gUpperEdge_array;
-	for(auto& one_gUpperEdge_array : gUpperEdge_array)
-		one_gUpperEdge_array=gUpperEdge;
 	DoThreshScan(
 		0, 
 		NRCHANNELS, 
-		gLowerEdge_array, 
-		gUpperEdge_array, 
+		gLowerEdge, 
+		gUpperEdge, 
 		gMeasureTime, 
 		gStepsize, 
 		gNrPasses, 
@@ -874,9 +858,9 @@ void dirich::DoThreshScan(){
 void dirich::DoFineThreshScan(){
 	std::array<uint16_t,NRCHANNELS> gLowerEdge_array;
 	std::array<uint16_t,NRCHANNELS> gUpperEdge_array;
-	for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-		gLowerEdge_array.at(ichannel)=fbaseline.at(ichannel)-0.75*fnoisewidth.at(ichannel);
-		gUpperEdge_array.at(ichannel)=fbaseline.at(ichannel)+0.75*fnoisewidth.at(ichannel);
+	for(int iichannel=0;iichannel<NRCHANNELS;++iichannel){
+		gLowerEdge_array.at(iichannel)=fbaseline.at(iichannel)-0.75*fnoisewidth.at(iichannel);
+		gUpperEdge_array.at(iichannel)=fbaseline.at(iichannel)+0.75*fnoisewidth.at(iichannel);
 	}
 	DoThreshScan(
 		0, 
@@ -915,15 +899,15 @@ void dirich::DoThreshScan(
 	int ret;
 
 	if(clear_graph==1){
-		for (int ichannel=0; ichannel<NRCHANNELS; ichannel++){
-			gRateGraphs[ichannel]->Set(0);
-			gRateGraphsOverBase[ichannel]->Set(0);
+		for (int iichannel=0; iichannel<NRCHANNELS; iichannel++){
+			gRateGraphs.at(iichannel)->Set(0);
+			gRateGraphsOverBase.at(iichannel)->Set(0);
 		}
 	}
 
 	for(int ipass=0;ipass<NrPasses;++ipass){
 		for(int tries=0;tries<100;++tries){
-			ret=WriteThresholds(OFFTHRESH, true);
+			ret=WriteThresholds(OFFTHRESH, false);
 			if(ret!=-1) break;
 			usleep(THRESHDELAY);
 		}
@@ -951,33 +935,33 @@ void dirich::DoThreshScan(
 				<< "%" << std::flush;
 			}
 			std::array<uint16_t,NRCHANNELS> threshold_value;
-			for (int ichannel=0; ichannel<LastChannel; ichannel++){
-				threshold_value.at(ichannel) = 
-				(ichannel+ipass)%NrPasses==0 ? 
-				FromThr.at(ichannel)+addthresh : 0;
+			for (int iichannel=0; iichannel<LastChannel; iichannel++){
+				threshold_value.at(iichannel) = 
+				(iichannel+ipass)%NrPasses==0 ? 
+				FromThr.at(iichannel)+addthresh : 0;
 			}
 			ret=WriteThresholds(threshold_value, false);
 			usleep(THRESHDELAY);
 			double* rates;
 			rates = GetRates(MeasureTime);
-			for (int ichannel=0; ichannel<LastChannel; ichannel++){
-				if(threshold_value.at(ichannel)==0) continue;
-				gRateGraphs[ichannel]->SetPoint(
-					gRateGraphs[ichannel]->GetN(),
-					1.*threshold_value.at(ichannel),
-					1.*rates[ichannel]
+			for (int iichannel=0; iichannel<LastChannel; iichannel++){
+				if(threshold_value.at(iichannel)==0) continue;
+				gRateGraphs.at(iichannel)->SetPoint(
+					gRateGraphs.at(iichannel)->GetN(),
+					1.*threshold_value.at(iichannel),
+					1.*rates[iichannel]
 				);
 				if(gdirich_reporting_level>2){
 					std::cout 
-						<< 1.*threshold_value.at(ichannel) 
-						<< " " << 1.*rates[ichannel] 
+						<< 1.*threshold_value.at(iichannel) 
+						<< " " << 1.*rates[iichannel] 
 						<< std::endl;
 				}
 			}
 		}
 	}
-	for (int ichannel=FirstChannel; ichannel<LastChannel; ++ichannel){
-		gRateGraphs[ichannel]->Sort();
+	for (int iichannel=FirstChannel; iichannel<LastChannel; ++iichannel){
+		gRateGraphs.at(iichannel)->Sort();
 	}
 	if(gdirich_reporting_level==1){
 		std::cout << std::endl;
@@ -1030,7 +1014,7 @@ void dirich::DoThreshScanOverBase(
 
 	for(int ipass=0;ipass<NrPasses;++ipass){
 		for(int tries=0;tries<100;++tries){
-			ret=WriteThresholds(OFFTHRESH, true);
+			ret=WriteThresholds(OFFTHRESH, false);
 			if(ret!=-1) break;
 			usleep(THRESHDELAY);
 		}
@@ -1057,17 +1041,20 @@ void dirich::DoThreshScanOverBase(
 					<< "%" << std::flush;
 			}
 			std::array<uint16_t,NRCHANNELS> threshold_value;
-			for (int ichannel=0; ichannel<LastChannel; ichannel++){
-				threshold_value.at(ichannel) = 
-				(ichannel+ipass)%NrPasses==0 ? 
+			for (int iichannel=0; iichannel<LastChannel; iichannel++){
+				threshold_value.at(iichannel) = 
+				(iichannel+ipass)%NrPasses==0 ? 
 				(
-					fbaseline.at(ichannel)
-					+fnoisewidth.at(ichannel)/4
-					+Thr_mVtoD(addthresh)
+					fbaseline.at(iichannel)
+					+forientation.at(iichannel)
+					*(
+						fnoisewidth.at(iichannel)/4
+						+Thr_mVtoD(addthresh)
+					)
 				) : 0;
 			}
 			for(int tries=0;tries<100;++tries){
-				ret=WriteThresholds(threshold_value, true);
+				ret=WriteThresholds(threshold_value, false);
 				if(ret!=-1) break;
 				usleep(THRESHDELAY);
 			}
@@ -1081,30 +1068,30 @@ void dirich::DoThreshScanOverBase(
 			usleep(THRESHDELAY);
 			for(int measures=0;measures<gMeasures;++measures){
 				double* rates = GetRates(gMeasureTime_over_temp);
-				for (int ichannel=0; ichannel<LastChannel; ichannel++){
-					if(threshold_value.at(ichannel)==0) continue;
-					gRateGraphsOverBase[ichannel]->SetPoint(
-						gRateGraphsOverBase[ichannel]->GetN(),
-						1.*Thr_DtomV(threshold_value.at(ichannel)-fbaseline.at(ichannel)),
-						1.*rates[ichannel]
+				for (int iichannel=0; iichannel<LastChannel; iichannel++){
+					if(threshold_value.at(iichannel)==0) continue;
+					gRateGraphsOverBase.at(iichannel)->SetPoint(
+						gRateGraphsOverBase.at(iichannel)->GetN(),
+						1.*Thr_DtomV(threshold_value.at(iichannel)-fbaseline.at(iichannel)),
+						1.*rates[iichannel]
 					);
 					if(gdirich_reporting_level>2){
 						std::cout 
-							<< 1.*threshold_value.at(ichannel) 
-							<< " " << 1.*rates[ichannel] 
+							<< 1.*threshold_value.at(iichannel) 
+							<< " " << 1.*rates[iichannel] 
 							<< std::endl;
 					}
 				}
 			}
 
 			int finish_counter=0;
-			for (int ichannel=FirstChannel+ipass; ichannel<LastChannel; ichannel+=NrPasses){
-				int number_of_points = gRateGraphsOverBase[ichannel]->GetN();
+			for (int iichannel=FirstChannel+ipass; iichannel<LastChannel; iichannel+=NrPasses){
+				int number_of_points = gRateGraphsOverBase.at(iichannel)->GetN();
 				if(number_of_points>3){
 					if(
-						gRateGraphsOverBase[ichannel]->GetY()[number_of_points-1]< 3. 
-						&& gRateGraphsOverBase[ichannel]->GetY()[number_of_points-2] < 3. 
-						&& gRateGraphsOverBase[ichannel]->GetY()[number_of_points-3] < 3.
+						gRateGraphsOverBase.at(iichannel)->GetY()[number_of_points-1]< 3. 
+						&& gRateGraphsOverBase.at(iichannel)->GetY()[number_of_points-2] < 3. 
+						&& gRateGraphsOverBase.at(iichannel)->GetY()[number_of_points-3] < 3.
 						) 
 							finish_counter++;
 				}
@@ -1113,7 +1100,7 @@ void dirich::DoThreshScanOverBase(
 				if(gdirich_reporting_level>=1){
 					std::cout 
 					<< "Stopped Scan above Threshold at threshold of " << addthresh 
-					<< " as no larger Rate than 3 Hz was observed in any channel for the last three thresholds" 
+					<< " as no larger Rate than 3 Hz was observed in any ichannel for the last three thresholds" 
 					<< std::endl;
 				} 
 				break;
@@ -1121,86 +1108,124 @@ void dirich::DoThreshScanOverBase(
 		}
 	}
 
-	for (int ichannel=FirstChannel; ichannel<=LastChannel; ++ichannel){
-		gRateGraphsOverBase[ichannel]->Sort();
+	for (int iichannel=FirstChannel; iichannel<=LastChannel; ++iichannel){
+		gRateGraphsOverBase.at(iichannel)->Sort();
 	}
 }
 
 void dirich::MakeDiffGraphsOverBase(){
-	// MakeDiffGraphsOverBase(gLowerEdge, gUpperEdge);
-// }
-// void dirich::MakeDiffGraphsOverBase(uint16_t FromThr, uint16_t ToThr){
-	for(int ichannel;ichannel<NRCHANNELS;++ichannel){
-		gDiffRateGraphsOverBase[ichannel]->Set(0);
-		if(fbaseline[ichannel]==0) continue;
+	MakeDiffGraphsOverBase(1);
+}
+void dirich::MakeDiffGraphsOverBase(int case_type){
+	auto get_med = [](std::multiset<double> input_set) {
+		return 1.*(
+			*std::next(input_set.begin(), (int)floor(1.*input_set.size()/2))
+			+(*std::next(input_set.begin(), (int)ceil(1.*input_set.size()/2)-1))
+			// input_set.at((int)floor(1.*input_set.size()/2))
+			// +input_set.at((int)ceil(1.*input_set.size()/2)-1)
+			)/2;
+	};
 
-		std::map<double,std::vector<double>> points_per_x;
-		double* x_val = gRateGraphsOverBase[ichannel]->GetX();
-		double* y_val = gRateGraphsOverBase[ichannel]->GetY();
+	for(int iichannel;iichannel<NRCHANNELS;++iichannel){
+		gDiffRateGraphsOverBase.at(iichannel)->Set(0);
+		if(fbaseline.at(iichannel)==0) continue;
+			
+		if(gRateGraphsOverBase.at(iichannel)->GetN()<2) continue;
+		std::map<double,std::multiset<double>> points_per_x;
+		double* x_val = gRateGraphsOverBase.at(iichannel)->GetX();
+		double* y_val = gRateGraphsOverBase.at(iichannel)->GetY();
 
 		std::vector<std::pair<double,double> > val_med;
-		for (int ipoint=0; ipoint<gRateGraphsOverBase[ichannel]->GetN(); ++ipoint) {
+		for (int ipoint=0; ipoint<gRateGraphsOverBase.at(iichannel)->GetN(); ++ipoint) {
+			// std::cout << std::dec << "\t\t" << ipoint << std::endl;
 			if(points_per_x.count(x_val[ipoint])==0){
-				std::vector<double> temp;
-				points_per_x.insert(std::pair<double,std::vector<double>>(x_val[ipoint],temp));
+				std::multiset<double> temp;
+				points_per_x.insert(std::pair<double,std::multiset<double>>(x_val[ipoint],temp));
+				// std::cout << "\t\tnew" << std::endl;
 			}
-			points_per_x.at(x_val[ipoint]).push_back(y_val[ipoint]);
+			points_per_x.at(x_val[ipoint]).insert(y_val[ipoint]);
+			// std::cout << std::dec << "\t\t" << points_per_x.size() << std::endl;
 		}
-		for(auto& x_vals : points_per_x){
-			std::sort(x_vals.second.begin(),x_vals.second.end());
-			double med=0;
-			if(x_vals.second.size()%2==0){
-				med=(
-					x_vals.second.at(x_vals.second.size()/2)
-					+x_vals.second.at((x_vals.second.size()+1)/2)
-					)/2;
+
+		switch(case_type){
+			case 0:
+			for (int ipoint=0;ipoint<points_per_x.size();++ipoint){
+				auto iterator = std::next(points_per_x.begin(),ipoint);
+				// std::cout << std::dec << "\t\t" << ipoint << std::endl;
+				// std::cout << std::dec << "\t\t" << ipoint << " " << *((*std::prev(iterator,1)).second.begin()) << " " << get_med((*std::prev(iterator,1)).second) << std::endl;
+				gDiffRateGraphsOverBase.at(iichannel)->SetPoint(
+					gDiffRateGraphsOverBase.at(iichannel)->GetN(),
+					(*iterator).first,
+					(
+						get_med((*iterator).second)
+					)
+				);
 			}
-			else{
-				med=x_vals.second.at(x_vals.second.size()/2);
+			break;
+			case 1:
+			for (int ipoint=2;ipoint<points_per_x.size()-2;++ipoint){
+				auto iterator = std::next(points_per_x.begin(),ipoint);
+				// std::cout << std::dec << "\t\t" << ipoint << std::endl;
+				// std::cout << std::dec << "\t\t" << ipoint << " " << *((*std::prev(iterator,1)).second.begin()) << " " << get_med((*std::prev(iterator,1)).second) << std::endl;
+				gDiffRateGraphsOverBase.at(iichannel)->SetPoint(
+					gDiffRateGraphsOverBase.at(iichannel)->GetN(),
+					((*std::prev(iterator,1)).first+(*std::next(iterator,1)).first) * 0.5,
+					(
+						-1.*get_med((*std::prev(iterator,2)).second)
+						+8.*get_med((*std::prev(iterator,1)).second)
+						-8.*get_med((*std::next(iterator,1)).second)
+						+1.*get_med((*std::next(iterator,2)).second)
+					)/(
+						6*fabs((*std::prev(iterator,1)).first-(*std::next(iterator,1)).first)
+					)
+				);
 			}
-			val_med.push_back(std::pair<double,double>(x_vals.first,med));
+			break;
+			case 2:
+			case 3:
+			default:
+			for (int ipoint=0;ipoint<points_per_x.size()-1;++ipoint){
+				auto iterator = std::next(points_per_x.begin(),ipoint);
+				// std::cout << std::dec << "\t\t" << ipoint << std::endl;
+				// std::cout << std::dec << "\t\t" << ipoint << " " << *((*std::prev(iterator,1)).second.begin()) << " " << get_med((*std::prev(iterator,1)).second) << std::endl;
+				gDiffRateGraphsOverBase.at(iichannel)->SetPoint(
+					gDiffRateGraphsOverBase.at(iichannel)->GetN(),
+					(*iterator).first,
+					(
+						-1.*get_med((*std::next(iterator,1)).second)
+						+get_med((*iterator).second)
+					)/(
+						fabs((*iterator).first-(*std::next(iterator,1)).first)
+					)
+				);
+			}
+			if(case_type==3){
+				//smoothing the graph
+				double* x_values = gDiffRateGraphsOverBase.at(iichannel)->GetX();
+				double* y_values = gDiffRateGraphsOverBase.at(iichannel)->GetY();
+				int number = gDiffRateGraphsOverBase.at(iichannel)->GetN();
+				gDiffRateGraphsOverBase.at(iichannel)->Set(0);
+				for (int ipoint=1; ipoint<number-1; ipoint++) {
+					gDiffRateGraphsOverBase.at(iichannel)->SetPoint(
+						ipoint-1,x_values[ipoint],
+						1.*(y_values[ipoint-1]+y_values[ipoint]+y_values[ipoint+1])/3
+					);
+				}
+			}
+			break;
 		}
-		for (int ipoint=2;ipoint<val_med.size()-2;++ipoint){
-			gDiffRateGraphsOverBase[ichannel]->SetPoint(
-				gDiffRateGraphsOverBase[ichannel]->GetN(),
-				(val_med.at(ipoint-1).first+val_med.at(ipoint+1).first) * 0.5,
-				(
-					-val_med.at(ipoint-2).second
-					+8*val_med.at(ipoint-1).second
-					-8*val_med.at(ipoint+1).second
-					+val_med.at(ipoint+2).second
-				)/(
-					12*fabs(val_med.at(ipoint-1).first
-					-val_med.at(ipoint+1).first)
-				)
-			);
-		}
-		// //smoothing the graph
-		// double* x_values = gDiffRateGraphsOverBase[ichannel]->GetX();
-		// double* y_values = gDiffRateGraphsOverBase[ichannel]->GetY();
-		// int number = gDiffRateGraphsOverBase[ichannel]->GetN();
-		// gDiffRateGraphsOverBase[ichannel]->Set(0);
-		// for (int ipoint=1; ipoint<number-1; ipoint+=3) {
-		// 	gDiffRateGraphsOverBase[ichannel]->SetPoint(
-		// 		ipoint-1,x_values[ipoint],
-		// 		1.*(y_values[ipoint-1]+y_values[ipoint]+y_values[ipoint+1])/3
-		// 	);
-		// }
 	}
 }
 
 void dirich::MakeGraphsOverBase(){
-	MakeGraphsOverBase(gUpperEdge);
-}
-void dirich::MakeGraphsOverBase(uint16_t ToThr){
-	for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
-		if(fbaseline[ichannel]==0) continue;
-		for(int ipoint=0; ipoint<gRateGraphs[ichannel]->GetN(); ++ipoint){
-			if(gRateGraphs[ichannel]->GetX()[ipoint]<fbaseline.at(ichannel)) continue;
-			gRateGraphsOverBase[ichannel]->SetPoint(
-				gRateGraphsOverBase[ichannel]->GetN(),
-				Thr_DtomV((gRateGraphs[ichannel]->GetX()[ipoint])-fbaseline[ichannel]),
-				gRateGraphs[ichannel]->GetY()[ipoint]
+	for (int iichannel=0; iichannel<NRCHANNELS; iichannel++) {
+		if(fbaseline.at(iichannel)==0) continue;
+		for(int ipoint=0; ipoint<gRateGraphs.at(iichannel)->GetN(); ++ipoint){
+			if(gRateGraphs.at(iichannel)->GetX()[ipoint]<fbaseline.at(iichannel)) continue;
+			gRateGraphsOverBase.at(iichannel)->SetPoint(
+				gRateGraphsOverBase.at(iichannel)->GetN(),
+				Thr_DtomV((gRateGraphs.at(iichannel)->GetX()[ipoint])-fbaseline.at(iichannel)),
+				gRateGraphs.at(iichannel)->GetY()[ipoint]
 			);
 		}
 	}
@@ -1211,8 +1236,8 @@ void dirich::AnalyzeBaseline(){
 }
 void dirich::AnalyzeBaseline(uint32_t NoiseThreshold)
 {
-	for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
-		int NrBins=gRateGraphs[ichannel]->GetN();
+	for (int iichannel=0; iichannel<NRCHANNELS; iichannel++) {
+		int NrBins=gRateGraphs.at(iichannel)->GetN();
 		int noiseedgeleft=-1;
 		int noiseedgeright=-1;
 		double max=0;
@@ -1221,68 +1246,72 @@ void dirich::AnalyzeBaseline(uint32_t NoiseThreshold)
 		for (int ibin=0; ibin<NrBins-1; ibin++) {
 			if( 
 				(noiseedgeleft==-1) &&
-				(gRateGraphs[ichannel]->GetY()[ibin] < NoiseThreshold) &&
-				(gRateGraphs[ichannel]->GetY()[ibin+1] >= NoiseThreshold)
+				(gRateGraphs.at(iichannel)->GetY()[ibin] < NoiseThreshold) &&
+				(gRateGraphs.at(iichannel)->GetY()[ibin+1] >= NoiseThreshold)
 			){
 				// linear interpolation
-				double y1=gRateGraphs[ichannel]->GetY()[ibin];
-				double y2=gRateGraphs[ichannel]->GetY()[ibin+1];
-				double x1=gRateGraphs[ichannel]->GetX()[ibin];
-				double x2=gRateGraphs[ichannel]->GetX()[ibin+1];
+				double y1=gRateGraphs.at(iichannel)->GetY()[ibin];
+				double y2=gRateGraphs.at(iichannel)->GetY()[ibin+1];
+				double x1=gRateGraphs.at(iichannel)->GetX()[ibin];
+				double x2=gRateGraphs.at(iichannel)->GetX()[ibin+1];
 				noiseedgeleft=x1+(NoiseThreshold-y1)/(y2-y1)*(x2-x1);
 			}
 
 			if( 
 				(noiseedgeright==-1) &&
-				(gRateGraphs[ichannel]->GetY()[NrBins-ibin-1] < NoiseThreshold) &&
-				(gRateGraphs[ichannel]->GetY()[NrBins-ibin-2] >= NoiseThreshold)
+				(gRateGraphs.at(iichannel)->GetY()[NrBins-ibin-1] < NoiseThreshold) &&
+				(gRateGraphs.at(iichannel)->GetY()[NrBins-ibin-2] >= NoiseThreshold)
 			){
 				// linear interpolation
-				double y1=gRateGraphs[ichannel]->GetY()[NrBins-ibin-2];
-				double y2=gRateGraphs[ichannel]->GetY()[NrBins-ibin-1];
-				double x1=gRateGraphs[ichannel]->GetX()[NrBins-ibin-2];
-				double x2=gRateGraphs[ichannel]->GetX()[NrBins-ibin-1];
+				double y1=gRateGraphs.at(iichannel)->GetY()[NrBins-ibin-2];
+				double y2=gRateGraphs.at(iichannel)->GetY()[NrBins-ibin-1];
+				double x1=gRateGraphs.at(iichannel)->GetX()[NrBins-ibin-2];
+				double x2=gRateGraphs.at(iichannel)->GetX()[NrBins-ibin-1];
 				noiseedgeright=x2-(NoiseThreshold-y2)/(y1-y2)*(x2-x1);
 			}
-			if(gRateGraphs[ichannel]->GetY()[ibin]>max){
-				max=gRateGraphs[ichannel]->GetY()[ibin];
-				max_x=gRateGraphs[ichannel]->GetX()[ibin];
+			if(gRateGraphs.at(iichannel)->GetY()[ibin]>max){
+				max=gRateGraphs.at(iichannel)->GetY()[ibin];
+				max_x=gRateGraphs.at(iichannel)->GetX()[ibin];
+			}
+			if(gRateGraphs.at(iichannel)->GetY()[NrBins-ibin-1]>max){
+				max=gRateGraphs.at(iichannel)->GetY()[NrBins-ibin-1];
+				max_x=gRateGraphs.at(iichannel)->GetX()[NrBins-ibin-1];
 			}
 			if(noiseedgeleft!=-1 && noiseedgeright!=-1) break;
 		}
 		if(noiseedgeleft==-1 || noiseedgeright==-1){
 			if(max==0 || NrBins<2){
-				fbaseline_old[ichannel] = fbaseline[ichannel];
-				fbaseline[ichannel] = 0;
-				fnoisewidth_old[ichannel] = fnoisewidth[ichannel];
-				fnoisewidth[ichannel] = 0;
+				fbaseline_old.at(iichannel) = fbaseline.at(iichannel);
+				fbaseline.at(iichannel) = 0;
+				fnoisewidth_old.at(iichannel) = fnoisewidth.at(iichannel);
+				fnoisewidth.at(iichannel) = 0;
 				std::cout 
-					<< "No baseline found for channel " 
-					<< ichannel << "on dirich 0x" << std::hex << gBoardAddress 
+					<< "No baseline found for ichannel " 
+					<< iichannel << "on dirich 0x" << std::hex << gBoardAddress 
 					<< std::dec << std::endl;
 			}
 			else{
-				fbaseline_old[ichannel] = fbaseline[ichannel];
-				fbaseline[ichannel] = max_x;
-				fnoisewidth_old[ichannel] = fnoisewidth[ichannel];
-				fnoisewidth[ichannel] = 
+				fbaseline_old.at(iichannel) = fbaseline.at(iichannel);
+				fbaseline.at(iichannel) = max_x;
+				fnoisewidth_old.at(iichannel) = fnoisewidth.at(iichannel);
+				fnoisewidth.at(iichannel) = 
 					2*(
-						gRateGraphs[ichannel]->GetX()[0]-gRateGraphs[ichannel]->GetX()[1]
+						gRateGraphs.at(iichannel)->GetX()[0]-gRateGraphs.at(iichannel)->GetX()[1]
 					);
 			}
 		}
 		else {
-			fbaseline_old[ichannel] = fbaseline[ichannel];
-			fbaseline[ichannel]=(noiseedgeleft+noiseedgeright) / 2.;
-			fnoisewidth_old[ichannel] = fnoisewidth[ichannel];
-			fnoisewidth[ichannel]=(noiseedgeright-noiseedgeleft);
-			TLine* baseline_line = new TLine(fbaseline[ichannel],
-				gRateGraphs[ichannel]->GetHistogram()->GetMinimum(),
-				fbaseline[ichannel],gRateGraphs[ichannel]->GetHistogram()->GetMaximum()
+			fbaseline_old.at(iichannel) = fbaseline.at(iichannel);
+			fbaseline.at(iichannel)=(noiseedgeleft+noiseedgeright) / 2.;
+			fnoisewidth_old.at(iichannel) = fnoisewidth.at(iichannel);
+			fnoisewidth.at(iichannel)=(noiseedgeright-noiseedgeleft);
+			TLine* baseline_line = new TLine(fbaseline.at(iichannel),
+				gRateGraphs.at(iichannel)->GetHistogram()->GetMinimum(),
+				fbaseline.at(iichannel),gRateGraphs.at(iichannel)->GetHistogram()->GetMaximum()
 			);
 			baseline_line->SetLineWidth(2);
 			baseline_line->SetLineColor(kRed);
-			gRateGraphs[ichannel]->GetListOfFunctions()->Add(baseline_line);
+			gRateGraphs.at(iichannel)->GetListOfFunctions()->Add(baseline_line);
 		} 
 	}
 }

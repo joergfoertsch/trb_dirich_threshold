@@ -63,11 +63,11 @@ TH2* get_2D_rate_histo(std::shared_ptr<dirich>	dirichptr)
 			"2D Rate vs. Threshold of all diriches","2D Rate vs. Threshold of all diriches",
 			dirichlist.size()*NRCHANNELS,-.5,dirichlist.size()*NRCHANNELS-.5,
 			(
-				dirichlist.begin()->second->gUpperEdge
-				-dirichlist.begin()->second->gLowerEdge
+				dirichlist.begin()->second->gUpperEdge.at(0)
+				-dirichlist.begin()->second->gLowerEdge.at(0)
 			)/dirichlist.begin()->second->gStepsize,
-			dirichlist.begin()->second->gLowerEdge,
-			dirichlist.begin()->second->gUpperEdge
+			dirichlist.begin()->second->gLowerEdge.at(0),
+			dirichlist.begin()->second->gUpperEdge.at(0)
 		);
 		int idirich=0;
 		// std::map<uint16_t,dirich*>::iterator dirichlistiterator = dirichlist.begin();
@@ -147,9 +147,9 @@ TH2* get_2D_rate_histo(std::shared_ptr<dirich>	dirichptr)
 			NRCHANNELS,
 			-.5,
 			NRCHANNELS-.5,
-			(dirichptr->gUpperEdge-dirichptr->gLowerEdge)/dirichptr->gStepsize,
-			dirichptr->gLowerEdge,
-			dirichptr->gUpperEdge
+			(dirichptr->gUpperEdge.at(0)-dirichptr->gLowerEdge.at(0))/dirichptr->gStepsize,
+			dirichptr->gLowerEdge.at(0),
+			dirichptr->gUpperEdge.at(0)
 		);
 		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
 			for(int ipoint=0;ipoint<dirichptr->gRateGraphs[ichannel]->GetN();++ipoint){
@@ -1085,14 +1085,14 @@ void save_base(std::shared_ptr<dirich>	dirichptr, std::string filename, bool app
 				<< "# Scan-Settings for 0x" 
 				<< std::hex << dirichlistitem.first 
 				<< std::dec 
-				<< "\n# gMeasureTime\tgLowerEdge\tgUpperEdge\tgStepsize\tgNrPasses\tgMeasureTime_over"
+				<< "\n# gMeasureTime\tgLowerEdge(0)\tgUpperEdge(0)\tgStepsize\tgNrPasses\tgMeasureTime_over"
 					"\tgUpperEdge_over\tgStepsize_over\tgNrPasses_over" 
 				<< std::endl;
 			file 
 				<< "# " 
 				<< dirichlistitem.second->gMeasureTime 
-				<< "\t" << dirichlistitem.second->gLowerEdge 
-				<< "\t" << dirichlistitem.second->gUpperEdge 
+				<< "\t" << dirichlistitem.second->gLowerEdge.at(0) 
+				<< "\t" << dirichlistitem.second->gUpperEdge.at(0) 
 				<< "\t" << dirichlistitem.second->gStepsize 
 				<< "\t" << dirichlistitem.second->gNrPasses 
 				<< "\t" << dirichlistitem.second->gMeasureTime_over 
@@ -1120,14 +1120,14 @@ void save_base(std::shared_ptr<dirich>	dirichptr, std::string filename, bool app
 		file 
 			<< "# Scan-Settings for 0x" << std::hex << dirichptr->GetBoardAddress() 
 			<< std::dec 
-			<< "\n# gMeasureTime\tgLowerEdge\tgUpperEdge\tgStepsize\tgNrPasses\tgMeasureTime_over"
+			<< "\n# gMeasureTime\tgLowerEdge(0)\tgUpperEdge(0)\tgStepsize\tgNrPasses\tgMeasureTime_over"
 				"\tgUpperEdge_over\tgStepsize_over\tgNrPasses_over" 
 			<< std::endl;
 		file 
 			<< "# " 
 			<< dirichptr->gMeasureTime 
-			<< "\t" << dirichptr->gLowerEdge 
-			<< "\t" << dirichptr->gUpperEdge 
+			<< "\t" << dirichptr->gLowerEdge.at(0) 
+			<< "\t" << dirichptr->gUpperEdge.at(0)
 			<< "\t" << dirichptr->gStepsize 
 			<< "\t" << dirichptr->gNrPasses 
 			<< "\t" << dirichptr->gMeasureTime_over 
@@ -1642,16 +1642,16 @@ void setup_scan_parameters(
 				continue;
 			}
 			dirichlistitem.second->gMeasureTime = gMeasureTime;
-			dirichlistitem.second->gLowerEdge = gLowerEdge;
-			dirichlistitem.second->gUpperEdge = gUpperEdge;
+			dirichlistitem.second->gLowerEdge.fill(gLowerEdge);
+			dirichlistitem.second->gUpperEdge.fill(gUpperEdge);
 			dirichlistitem.second->gStepsize = gStepsize;
 			dirichlistitem.second->gNrPasses = gNrPasses;
 		}
 	}
 	else{
 		dirichptr->gMeasureTime = gMeasureTime;
-		dirichptr->gLowerEdge = gLowerEdge;
-		dirichptr->gUpperEdge = gUpperEdge;
+		dirichptr->gLowerEdge.fill(gLowerEdge);
+		dirichptr->gUpperEdge.fill(gUpperEdge);
 		dirichptr->gStepsize = gStepsize;
 		dirichptr->gNrPasses = gNrPasses;
 	}

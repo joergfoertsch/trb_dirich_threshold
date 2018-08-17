@@ -37,8 +37,8 @@ namespace fs = boost::filesystem;
 // #define LASTCHANNEL 31
 
 #ifndef NCH
-	const int NRCHANNELS = 32;			 //Nr of TDC channels in dirich
-	// const int NRCHANNELS = 4;			 //Nr of TDC channels in dirich
+	const int NRCHANNELS = 32;			 //Nr of TDC ichannels in dirich
+	const int CHPCHAIN = 16;			 //Nr of TDC ichannels pre dirich-chain
 	#define NCH
 #endif
 

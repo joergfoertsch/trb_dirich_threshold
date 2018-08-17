@@ -629,7 +629,7 @@ void dirich::SetSingleThresholdmV(uint8_t ichannel ,double thrinmV=30.)
 	} 
 	int newthreshold = thrinmV==0 ? 0 : baseline+forientation.at(ichannel)+Thr_mVtoD(thrinmV);
 
-	int ret=WriteSingleThreshold(ichannel, newthreshold, false);
+	int ret=WriteSingleThreshold(ichannel, newthreshold, true);
 	if(ret<0){
 			std::cerr 
 			<< "dirich 0x" << std::hex << gBoardAddress 
@@ -664,7 +664,7 @@ void dirich::SetThresholdsmV(std::array<double,NRCHANNELS> thrarrayinmV)
 	}
 	int ret=0;
 	for(int tries=0;tries<100;++tries){
-		ret=WriteThresholds(thrarrayD, false);
+		ret=WriteThresholds(thrarrayD, true);
 		if(ret!=-1) break;
 	}
 	if(ret<0){
@@ -1014,7 +1014,7 @@ void dirich::DoThreshScanOverBase(
 
 	for(int ipass=0;ipass<NrPasses;++ipass){
 		for(int tries=0;tries<100;++tries){
-			ret=WriteThresholds(OFFTHRESH, false);
+			ret=WriteThresholds(OFFTHRESH, true);
 			if(ret!=-1) break;
 			usleep(THRESHDELAY);
 		}
@@ -1054,7 +1054,7 @@ void dirich::DoThreshScanOverBase(
 				) : 0;
 			}
 			for(int tries=0;tries<100;++tries){
-				ret=WriteThresholds(threshold_value, false);
+				ret=WriteThresholds(threshold_value, true);
 				if(ret!=-1) break;
 				usleep(THRESHDELAY);
 			}
@@ -1137,22 +1137,22 @@ void dirich::MakeDiffGraphsOverBase(int case_type){
 
 		std::vector<std::pair<double,double> > val_med;
 		for (int ipoint=0; ipoint<gRateGraphsOverBase.at(ichannel)->GetN(); ++ipoint) {
-			std::cout << std::dec << "\t\t" << ipoint << std::endl;
+			// std::cout << std::dec << "\t\t" << ipoint << std::endl;
 			if(points_per_x.count(x_val[ipoint])==0){
 				std::multiset<double> temp;
 				points_per_x.insert(std::pair<double,std::multiset<double>>(x_val[ipoint],temp));
-				std::cout << "\t\tnew" << std::endl;
+				// std::cout << "\t\tnew" << std::endl;
 			}
 			points_per_x.at(x_val[ipoint]).insert(y_val[ipoint]);
-			std::cout << std::dec << "\t\t" << points_per_x.size() << std::endl;
+			// std::cout << std::dec << "\t\t" << points_per_x.size() << std::endl;
 		}
 
 		switch(case_type){
 			case 0:
 			for (int ipoint=0;ipoint<points_per_x.size();++ipoint){
 				auto iterator = std::next(points_per_x.begin(),ipoint);
-				std::cout << std::dec << "\t\t" << ipoint << std::endl;
-				std::cout << std::dec << "\t\t" << ipoint << " " << *((*std::prev(iterator,1)).second.begin()) << " " << get_med((*std::prev(iterator,1)).second) << std::endl;
+				// std::cout << std::dec << "\t\t" << ipoint << std::endl;
+				// std::cout << std::dec << "\t\t" << ipoint << " " << *((*std::prev(iterator,1)).second.begin()) << " " << get_med((*std::prev(iterator,1)).second) << std::endl;
 				gDiffRateGraphsOverBase.at(ichannel)->SetPoint(
 					gDiffRateGraphsOverBase.at(ichannel)->GetN(),
 					(*iterator).first,
@@ -1165,8 +1165,8 @@ void dirich::MakeDiffGraphsOverBase(int case_type){
 			case 1:
 			for (int ipoint=2;ipoint<points_per_x.size()-2;++ipoint){
 				auto iterator = std::next(points_per_x.begin(),ipoint);
-				std::cout << std::dec << "\t\t" << ipoint << std::endl;
-				std::cout << std::dec << "\t\t" << ipoint << " " << *((*std::prev(iterator,1)).second.begin()) << " " << get_med((*std::prev(iterator,1)).second) << std::endl;
+				// std::cout << std::dec << "\t\t" << ipoint << std::endl;
+				// std::cout << std::dec << "\t\t" << ipoint << " " << *((*std::prev(iterator,1)).second.begin()) << " " << get_med((*std::prev(iterator,1)).second) << std::endl;
 				gDiffRateGraphsOverBase.at(ichannel)->SetPoint(
 					gDiffRateGraphsOverBase.at(ichannel)->GetN(),
 					((*std::prev(iterator,1)).first+(*std::next(iterator,1)).first) * 0.5,
@@ -1186,8 +1186,8 @@ void dirich::MakeDiffGraphsOverBase(int case_type){
 			default:
 			for (int ipoint=0;ipoint<points_per_x.size()-1;++ipoint){
 				auto iterator = std::next(points_per_x.begin(),ipoint);
-				std::cout << std::dec << "\t\t" << ipoint << std::endl;
-				std::cout << std::dec << "\t\t" << ipoint << " " << *((*std::prev(iterator,1)).second.begin()) << " " << get_med((*std::prev(iterator,1)).second) << std::endl;
+				// std::cout << std::dec << "\t\t" << ipoint << std::endl;
+				// std::cout << std::dec << "\t\t" << ipoint << " " << *((*std::prev(iterator,1)).second.begin()) << " " << get_med((*std::prev(iterator,1)).second) << std::endl;
 				gDiffRateGraphsOverBase.at(ichannel)->SetPoint(
 					gDiffRateGraphsOverBase.at(ichannel)->GetN(),
 					(*iterator).first,

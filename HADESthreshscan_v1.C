@@ -37,14 +37,15 @@ namespace fs = boost::filesystem;
 // #define LASTCHANNEL 31
 
 #ifndef NCH
-	const int NRCHANNELS = 32;			 //Nr of TDC ichannels in dirich
-	const int CHPCHAIN = 16;			 //Nr of TDC ichannels pre dirich-chain
+	const int NRCHANNELS = 48;			 //Nr of TDC ichannels in padiwa-amps2
+	const int CHPCHAIN = 16;			 //Nr of TDC ichannels pre padiwa-amps2-chain
 	#define NCH
 #endif
 
 #ifndef THC
-	const int OFFTHRESH =	1000;	 //Value to switch off channel
-	const int THRESHDELAY = 100000;	//Delay [mus] for thresh change to succeed
+	const int OFFTHRESH_high = 65535; //Value to switch off ichannel
+	const int OFFTHRESH_low = 1; //Value to switch off ichannel
+	const int THRESHDELAY = 100000; //Delay [mus] for thresh change to succeed
 	#define THC
 #endif
 
@@ -1051,9 +1052,16 @@ void set_pattern(std::shared_ptr<dirich> dirichptr, uint32_t pattern=4294967295)
 		std::array<double,NRCHANNELS> thresholdvalues;
 		std::array<uint16_t,NRCHANNELS> baselines = dirichptr->GetBaselines();
 		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-			thresholdvalues.at(ichannel) = 
-			(pattern >> ichannel) % 2 == 1 ? 
-			0 : dirich::Thr_DtomV(OFFTHRESH-baselines.at(ichannel));
+			if(ichannel%2==0){
+				thresholdvalues.at(ichannel) = 
+				(pattern >> ichannel) % 2 == 1 ? 
+				0 : dirich::Thr_DtomV(OFFTHRESH_high-baselines.at(ichannel));
+			}
+			else{
+				thresholdvalues.at(ichannel) = 
+				(pattern >> ichannel) % 2 == 1 ? 
+				0 : dirich::Thr_DtomV(OFFTHRESH_low-baselines.at(ichannel));
+			}
 		}
 		dirichptr->SetThresholdsmV(thresholdvalues);
 	}
@@ -1422,13 +1430,13 @@ void* scanthread_nrml(void* dirichptr) //Argument is pointer to DiRICH class ins
 	// std::cout << "AnalyzeBaseline" << std::endl;
 	((dirich*)dirichptr)->AnalyzeBaseline();
 	// std::cout << "FineScan" << std::endl;
-	((dirich*)dirichptr)->DoFineThreshScan();
+	 ((dirich*)dirichptr)->DoFineThreshScan();
 	// std::cout << "AnalyzeBaseline" << std::endl;
-	((dirich*)dirichptr)->AnalyzeBaseline();
+	 ((dirich*)dirichptr)->AnalyzeBaseline();
 	// std::cout << "MakeGraphsOverBase" << std::endl;
-	((dirich*)dirichptr)->MakeGraphsOverBase();
+	 ((dirich*)dirichptr)->MakeGraphsOverBase();
 	// std::cout << "MakeDiffGraphsOverBase" << std::endl;
-	((dirich*)dirichptr)->MakeDiffGraphsOverBase();
+	 ((dirich*)dirichptr)->MakeDiffGraphsOverBase();
 	if(((dirich*)dirichptr)->gdirich_reporting_level>=1) 
 		TThread::Printf(
 			"Threshold scan for Dirich at address 0x%x done ! ",
@@ -1458,7 +1466,7 @@ void system_thr_scan(int type=0)
 {
 	int ret=0;
 
-	std::map<uint16_t,uint32_t> TDC_setting;
+	std::map<uint16_t,std::array<uint32_t,2>> TDC_setting;
 	std::map<uint16_t,int> TDC_set;
 	for (auto& dirichlistitem: dirichlist) {
 		if(dirichlistitem.second==NULL){
@@ -1481,13 +1489,29 @@ void system_thr_scan(int type=0)
 			temp_tdc_setting[1] = 0x0;
 		}
 
+		uint32_t temp_tdc_setting_2[2];
+		ret=trb_register_read(dirichlistitem.first, 0xc803, temp_tdc_setting_2, 2); //switch off TDC
+		// std::cout << std::hex << temp_tdc_setting_2[0] << "\t" << temp_tdc_setting[1] << std::endl;
+		if(ret!=2 || temp_tdc_setting_2[0]!=dirichlistitem.first){
+			std::cerr 
+				<< "Reading TDCs status failed for dirich " 
+				<< std::hex << dirichlistitem.first << std::dec 
+				<< " -> TDC for that dirich will be left switched off" 
+				<< std::endl;
+			temp_tdc_setting_2[1] = 0x0;
+		}
+
 		ret=trb_register_write(dirichlistitem.first, 0xc802, 0x00000000); //switch off TDC
+		ret=trb_register_write(dirichlistitem.first, 0xc803, 0x00000000); //switch off TDC
 		if(ret==-1){
 			TDC_set.insert(std::pair<uint16_t,int>(dirichlistitem.first,3));
 			continue;
 		}
 		TDC_set.insert(std::pair<uint16_t,int>(dirichlistitem.first,4));
-		TDC_setting.insert(std::pair<uint16_t,uint32_t>(dirichlistitem.first,temp_tdc_setting[1]));
+		std::array<uint32_t,2> temp;
+		temp.at(0) = temp_tdc_setting[1];
+		temp.at(1) = temp_tdc_setting_2[1];
+		TDC_setting.insert(std::pair<uint16_t,std::array<uint32_t,2>>(dirichlistitem.first,temp));
 	}
 
 	std::vector <TThread*> threadlist;
@@ -1556,7 +1580,14 @@ void system_thr_scan(int type=0)
 
 	for (auto& TDC_setting_item: TDC_setting) {
 		if(TDC_set.at(TDC_setting_item.first)!=4) continue;
-		ret=trb_register_write(TDC_setting_item.first, 0xc802, TDC_setting_item.second); //switch off TDC
+		ret=trb_register_write(TDC_setting_item.first, 0xc802, TDC_setting_item.second.at(0)); //switch off TDC
+		if(ret==-1){
+			std::cerr 
+				<< "Switching on TDCs failed for dirich: " 
+				<< std::hex << TDC_setting_item.first 
+				<< std::dec << std::endl;
+		}
+		ret=trb_register_write(TDC_setting_item.first, 0xc803, TDC_setting_item.second.at(1)); //switch off TDC
 		if(ret==-1){
 			std::cerr 
 				<< "Switching on TDCs failed for dirich: " 
@@ -1586,7 +1617,7 @@ void initialize_diriches(bool search_dirich)
 		uint32_t buffer[size4mb];
 		for(int i=0;i<100;++i){
 			// TRBAccessMutex.Lock();
-			ret=trb_read_uid(0xfe51, buffer, size4mb);
+			ret=trb_read_uid(0xfe71, buffer, size4mb);
 			// TRBAccessMutex.UnLock();
 			if(ret>0) break;
 		}
@@ -1605,7 +1636,7 @@ void initialize_diriches(bool search_dirich)
 				)
 			);
 			++dirich_counter;
-			if(dirichlist.at(uint16_t(buffer[i+3]))->gMeasureTime!=.3){ 
+			if(dirichlist.at(uint16_t(buffer[i+3]))->gMeasureTime!=1.){ 
 				//pls change it according to your initialization... Sure one should rather throw during init... but well I am lazy
 				std::cerr 
 					<< "DiRICH 0x" << std::hex << uint16_t(buffer[i+3]) 
@@ -1620,6 +1651,7 @@ void initialize_diriches(bool search_dirich)
 			<< " out of those" 
 			<< std::endl;
 	}
+	if(dirichlist.size()==0) exit(EXIT_FAILURE);
 	dirichlist.begin()->second->gdirich_reporting_level=1;
 }
 

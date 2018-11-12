@@ -536,11 +536,11 @@ int dirich::WriteSingleThreshold(uint8_t ichannel, uint16_t thrvalue, bool check
 	else{
 		uint8_t real_ichannel = ichannel%CHPCHAIN+CHPCHAIN*abs(gdirichver-3);
 		uint32_t cmd = 0x8 << 20 | real_ichannel << 24 | thrvalue <<0;
-		std::array<uint32_t,CHPCHAIN+2> c = {
+		std::array<uint32_t,CHPCHAIN+2> c = {{
 			cmd,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 			(uint32_t)( 1 << ((int)ichannel/CHPCHAIN)),
 			0x00001 | ((unsigned int)check) << 16
-		};
+		}};
 		ret=Ttrb_register_write_mem(gBoardAddress,0xd400,0,c.data(),CHPCHAIN+2);
 		if(ret==-1) return ret;
 		std::this_thread::sleep_for(std::chrono::microseconds(THRESHDELAY));		

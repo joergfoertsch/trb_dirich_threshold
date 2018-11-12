@@ -1608,7 +1608,8 @@ void* check_thresholds(){
 	int ret = 0;
 	int break_counter=0;
 	std::map<uint16_t,std::array<uint16_t,NRCHANNELS>> thresholds;
-	std::array<uint16_t,NRCHANNELS> temp_array{0};
+	std::array<uint16_t,NRCHANNELS> temp_array;
+	temp_array.fill(0);
 	for(auto& dirichlistitem : dirichlist){
 		thresholds.insert(std::make_pair(dirichlistitem.first,temp_array));
 	}

@@ -27,7 +27,7 @@ LIBS = $(TRBNETLIB) $(ROOTLIB) $(BOOSTLIB)
 LIBDIRS = $(TRBNETLIBDIR) $(ROOTLIBDIR) $(BOOSTLIBDIR)
 
 # Options
-OPT = -c -std=c++11
+OPT = -c -Wall -Wextra -pedantic -O3 -std=c++11
 
 # Make rules
 HADESthreshscan_$(VERSION): HADESthreshscan_$(VERSION).o

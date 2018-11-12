@@ -1,4 +1,4 @@
-#include "trbnet.h"
+// #include "trbnetcom.h"
 // #include "dirich_sim.C"
 
 #include "TROOT.h"
@@ -15,14 +15,19 @@
 #include "TFile.h"
 #include "TText.h"
 #include "TMath.h"
-#include "TThread.h"
+
+#include <iostream>
+#include <thread>
+#include <mutex>
+#include <unordered_map>
 #include <map>
 #include <array>
 #include <sstream>
 #include <fstream>
 #include <ctime>
 #include <stdlib.h>
-#include <iostream>
+#include <future>
+
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/range.hpp>
@@ -33,20 +38,24 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
+int gcheck_thresholds = 1;
+std::mutex gcheck_thresholds_mutex;
 // #define 0 0
 // #define LASTCHANNEL 31
 
-#ifndef NCH
-	const int NRCHANNELS = 32;			 //Nr of TDC ichannels in dirich
-	const int CHPCHAIN = 16;			 //Nr of TDC ichannels pre dirich-chain
-	#define NCH
-#endif
+// #ifndef NCH
+// 	const int NRCHANNELS = 32;			 //Nr of TDC ichannels in dirich
+// 	const int CHPCHAIN = 16;			 //Nr of TDC ichannels pre dirich-chain
+// 	#define NCH
+// #endif
 
-#ifndef THC
-	const int OFFTHRESH =	1000;	 //Value to switch off channel
-	const int THRESHDELAY = 100000;	//Delay [mus] for thresh change to succeed
-	#define THC
-#endif
+// #ifndef THC
+// 	const int OFFTHRESH =	1;	 //Value to switch off channel
+// 	const int THRESHDELAY = 100000;	//Delay [mus] for thresh change to succeed
+// 	#define THC
+// #endif
+
+const uint16_t BROADCAST = 0xfe51;
 
 std::map<uint16_t,std::shared_ptr<dirich>> dirichlist ={};
 
@@ -289,7 +298,7 @@ TH2* get_2D_diff_over_thr_histo(std::shared_ptr<dirich>	dirichptr)
 	gStyle->SetOptStat(0);
 	if(dirichptr==NULL){
 		double max_value=-9999;
-		double min_value=9999;
+		// double min_value=9999;
 		double min_width=1000;
 		for (auto& dirichitem : dirichlist){
 			for(auto& gDiffRateGraphsOverBaseIT : dirichitem.second->gDiffRateGraphsOverBase){
@@ -473,20 +482,17 @@ TH2* get_2D_rate_over_thr_histo(std::shared_ptr<dirich>	dirichptr)
 	gStyle->SetOptStat(0);
 	if(dirichptr==NULL){
 		double max_value=-9999;
-		double min_value=9999;
+		// double min_value=9999;
 		double min_width=1000;
 		for (auto& dirichitem : dirichlist){
 			for(auto& gRateGraphsOverBaseIT : dirichitem.second->gRateGraphsOverBase){
 				if(
 					gRateGraphsOverBaseIT->GetN()!=0 
 					&& max_value<gRateGraphsOverBaseIT->GetX()[gRateGraphsOverBaseIT->GetN()-1]
-				) 
+				){
 					max_value = gRateGraphsOverBaseIT->GetX()[gRateGraphsOverBaseIT->GetN()-1];
-				if(
-					gRateGraphsOverBaseIT->GetN()!=0 
-					&& max_value<gRateGraphsOverBaseIT->GetX()[gRateGraphsOverBaseIT->GetN()-1]
-				) 
-					min_value = gRateGraphsOverBaseIT->GetX()[0];
+					// min_value = gRateGraphsOverBaseIT->GetX()[0];
+				}
 				if(
 					gRateGraphsOverBaseIT->GetN()>=2 
 					&& min_width>abs(gRateGraphsOverBaseIT->GetX()[0]-gRateGraphsOverBaseIT->GetX()[1])
@@ -997,6 +1003,9 @@ void set_thresholds(std::shared_ptr<dirich> dirichptr, double thrinmV=30.)
 		}
 	}
 	else if(dirichlist.find(dirichptr->GetBoardAddress())!=dirichlist.end()){
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 2;
+		gcheck_thresholds_mutex.unlock();		
 		if(thrinmV<0.){
 			std::cerr 
 				<< "negative thresholds are not \"allowed\"!\ninverting value" 
@@ -1004,6 +1013,9 @@ void set_thresholds(std::shared_ptr<dirich> dirichptr, double thrinmV=30.)
 			thrinmV = -1*thrinmV;
 		}
 		dirichptr->SetThresholdsmV(thrinmV);
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 1;
+		gcheck_thresholds_mutex.unlock();		
 	}
 	else{
 			std::cerr 
@@ -1022,6 +1034,9 @@ void set_thresholds_to_noise(std::shared_ptr<dirich> dirichptr, double part_of_n
 		}
 	}
 	else if(dirichlist.find(dirichptr->GetBoardAddress())!=dirichlist.end()){
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 2;
+		gcheck_thresholds_mutex.unlock();
 		std::array<double,NRCHANNELS> thresholdvalues;
 		std::array<uint16_t,NRCHANNELS> noisevalues = dirichptr->GetNoisewidths();
 
@@ -1030,6 +1045,9 @@ void set_thresholds_to_noise(std::shared_ptr<dirich> dirichptr, double part_of_n
 				part_of_noisewidth*dirich::Thr_DtomV(.5*noisevalues.at(ichannel));
 		}
 		dirichptr->SetThresholdsmV(thresholdvalues);
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 1;
+		gcheck_thresholds_mutex.unlock();		
 	}
 	else{
 			std::cerr 
@@ -1048,19 +1066,82 @@ void set_pattern(std::shared_ptr<dirich> dirichptr, uint32_t pattern=4294967295)
 		}
 	}
 	else if(dirichlist.find(dirichptr->GetBoardAddress())!=dirichlist.end()){
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 2;
+		gcheck_thresholds_mutex.unlock();
 		std::array<double,NRCHANNELS> thresholdvalues;
 		std::array<uint16_t,NRCHANNELS> baselines = dirichptr->GetBaselines();
 		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
 			thresholdvalues.at(ichannel) = 
 			(pattern >> ichannel) % 2 == 1 ? 
-			0 : dirich::Thr_DtomV(OFFTHRESH-baselines.at(ichannel));
+			0 : dirich::Thr_DtomV(OFFTHRESH_low-baselines.at(ichannel));
 		}
 		dirichptr->SetThresholdsmV(thresholdvalues);
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 1;
+		gcheck_thresholds_mutex.unlock();
 	}
 	else{
 			std::cerr << "No DiRICH 0x" << std::hex << dirichptr->GetBoardAddress() 
 				<< " found" 
 				<< std::endl;
+	}
+}
+
+void measure_rate(std::shared_ptr<dirich>	dirichptr, std::string filename, double measure_time)
+{
+	if(dirichptr==NULL){
+		std::ofstream file;
+		file.open(filename, std::ios_base::app);
+		if(!file) std::cerr << "File for saving (" << filename << ") could not be opened!" << std::endl;
+		
+		std::unordered_map<uint16_t,std::future<double*>> rates;
+		for(auto& dirich : dirichlist){
+			rates.insert(std::pair<uint16_t,std::future<double*>>(
+				dirich.first, 
+				std::async(std::launch::async,
+					&dirich::GetRates, dirich.second.get(), measure_time
+				)
+			));
+		}
+		for(auto& one_rates : rates){
+			file 
+				<< "# Scan-Data\n# dirich\tchannel\trate\terror\t" 
+				<< std::endl;
+				one_rates.second.wait();
+			double* temp_rate_arr = one_rates.second.get();
+			for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
+				file
+					<< std::hex << one_rates.first << std::dec << "\t" 
+					<< ichannel << "\t" 
+					<< temp_rate_arr[ichannel] << "\t" 
+					<< sqrt(temp_rate_arr[ichannel])/sqrt(measure_time) << "\t" 
+					<< std::endl;
+			}
+		}
+		if(file)
+			file.close();
+	}
+	else{
+		std::ofstream file;
+		file.open(filename, std::ios_base::app);
+		if(!file) std::cerr << "File for saving (" << filename << ") could not be opened!" << std::endl;
+		
+		double* rates = dirichptr->GetRates(measure_time);
+
+		file 
+			<< "# Scan-Data\n# dirich\tchannel\trate\terror\t" 
+			<< std::endl;
+		for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
+			file
+				<< std::hex << dirichptr->GetBoardAddress() << std::dec << "\t" 
+				<< ichannel << "\t" 
+				<< rates[ichannel] << "\t" 
+				<< sqrt(rates[ichannel])/sqrt(measure_time) << "\t" 
+				<< std::endl;
+		}
+		if(file)
+			file.close();			
 	}
 }
 
@@ -1359,11 +1440,11 @@ void save_graphs(std::shared_ptr<dirich>	dirichptr, std::string filename){
 			get_2D_diff_over_thr_histo(dirichlistitem.second)->Write();
 			// get_2D_gr_diff_over_thr_histo(dirichlistitem.second)->Write();
 			// get_2D_mgr_diff_over_thr_histo(dirichlistitem.second)->Write();
-			TDirectory *channels = dirich_dir->mkdir("channels");
-			channels->cd();
+			// TDirectory *channels = dirich_dir->mkdir("channels");
+			// channels->cd();
 			for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-				TDirectory *ch = channels->mkdir(Form("ch:%i",ichannel));
-				ch->cd();
+				// TDirectory *ch = channels->mkdir(Form("ch:%i",ichannel));
+				// ch->cd();
 				dirichlistitem.second->gRateGraphs[ichannel]->Write();
 				dirichlistitem.second->gRateGraphsOverBase[ichannel]->Write();
 				dirichlistitem.second->gDiffRateGraphsOverBase[ichannel]->Write();
@@ -1382,11 +1463,11 @@ void save_graphs(std::shared_ptr<dirich>	dirichptr, std::string filename){
 		get_2D_diff_over_thr_histo(dirichptr)->Write();
 		// get_2D_gr_diff_over_thr_histo(dirichptr)->Write();
 		// get_2D_mgr_diff_over_thr_histo(dirichptr)->Write();
-		TDirectory *channels = dirich_dir->mkdir("channels");
-		channels->cd();
+		// TDirectory *channels = dirich_dir->mkdir("channels");
+		// channels->cd();
 		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-			TDirectory *ch = channels->mkdir(Form("ch:%i",ichannel));
-			ch->cd();
+			// TDirectory *ch = channels->mkdir(Form("ch:%i",ichannel));
+			// ch->cd();
 			dirichptr->gRateGraphs[ichannel]->Write();
 			dirichptr->gRateGraphsOverBase[ichannel]->Write();
 			dirichptr->gDiffRateGraphsOverBase[ichannel]->Write();
@@ -1413,10 +1494,10 @@ void save()
 void* scanthread_nrml(void* dirichptr) //Argument is pointer to DiRICH class instance
 {
 	if(((dirich*)dirichptr)->gdirich_reporting_level>=1) 
-		TThread::Printf(
-			"Starting threshscan for Dirich at address 0x%x",
-			((dirich*)dirichptr)->GetBoardAddress()
-		);
+		std::cout 
+			<< "Starting threshscan for Dirich at address 0x"
+			<< std::hex << ((dirich*)dirichptr)->GetBoardAddress()
+		<< std::endl;
 	// std::cout << "DoThreshScan" << std::endl;
 	((dirich*)dirichptr)->DoThreshScan();
 	// std::cout << "AnalyzeBaseline" << std::endl;
@@ -1430,67 +1511,45 @@ void* scanthread_nrml(void* dirichptr) //Argument is pointer to DiRICH class ins
 	// std::cout << "MakeDiffGraphsOverBase" << std::endl;
 	((dirich*)dirichptr)->MakeDiffGraphsOverBase();
 	if(((dirich*)dirichptr)->gdirich_reporting_level>=1) 
-		TThread::Printf(
-			"Threshold scan for Dirich at address 0x%x done ! ",
-			((dirich*)dirichptr)->GetBoardAddress()
-		); 
+		std::cout 
+			<< "Threshscan for Dirich at address 0x"
+			<< std::hex << ((dirich*)dirichptr)->GetBoardAddress()
+			<< " done"
+		<< std::endl;
 	return 0;
 }
 
 void* scanthread_over(void* dirichptr) //Argument is pointer to DiRICH class instance
 {
 	if(((dirich*)dirichptr)->gdirich_reporting_level>=1) 
-		TThread::Printf(
-			"Starting threshscan_over for Dirich at address 0x%x",
-			((dirich*)dirichptr)->GetBoardAddress()
-		);
+	std::cout 
+		<< "Starting threshscan_over for Dirich at address 0x"
+		<< std::hex << ((dirich*)dirichptr)->GetBoardAddress()
+	<< std::endl;
 	((dirich*)dirichptr)->DoThreshScanOverBase();
 	((dirich*)dirichptr)->MakeDiffGraphsOverBase();
 	if(((dirich*)dirichptr)->gdirich_reporting_level>=1) 
-		TThread::Printf(
-			"Threshold scan for Dirich at address 0x%x done ! ",
-			((dirich*)dirichptr)->GetBoardAddress()
-		); 
+		std::cout 
+			<< "Threshscan_over for Dirich at address 0x"
+			<< std::hex << ((dirich*)dirichptr)->GetBoardAddress()
+			<< " done"
+		<< std::endl;
 	return 0;
 }
 
 void system_thr_scan(int type=0)
 {
-	int ret=0;
-
-	std::map<uint16_t,uint32_t> TDC_setting;
-	std::map<uint16_t,int> TDC_set;
-	for (auto& dirichlistitem: dirichlist) {
-		if(dirichlistitem.second==NULL){
-			std::cerr 
-				<< "DiRICH " << std::hex << dirichlistitem.first 
-				<< std::dec << " not initialized! Not switching off TDC" 
-				<< std::endl;
-			TDC_set.insert(std::pair<uint16_t,int>(dirichlistitem.first,1));
-			continue;
-		}	 
-		uint32_t temp_tdc_setting[2];
-		ret=trb_register_read(dirichlistitem.first, 0xc802, temp_tdc_setting, 2); //switch off TDC
-		// std::cout << std::hex << temp_tdc_setting[0] << "\t" << temp_tdc_setting[1] << std::endl;
-		if(ret!=2 || temp_tdc_setting[0]!=dirichlistitem.first){
-			std::cerr 
-				<< "Reading TDCs status failed for dirich " 
-				<< std::hex << dirichlistitem.first << std::dec 
-				<< " -> TDC for that dirich will be left switched off" 
-				<< std::endl;
-			temp_tdc_setting[1] = 0x0;
-		}
-
-		ret=trb_register_write(dirichlistitem.first, 0xc802, 0x00000000); //switch off TDC
-		if(ret==-1){
-			TDC_set.insert(std::pair<uint16_t,int>(dirichlistitem.first,3));
-			continue;
-		}
-		TDC_set.insert(std::pair<uint16_t,int>(dirichlistitem.first,4));
-		TDC_setting.insert(std::pair<uint16_t,uint32_t>(dirichlistitem.first,temp_tdc_setting[1]));
+	if(type==0){
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 1;
+		gcheck_thresholds_mutex.unlock();
 	}
-
-	std::vector <TThread*> threadlist;
+	else{
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 2;
+		gcheck_thresholds_mutex.unlock();		
+	}
+	std::vector <std::thread*> threadlist;
 	// Initialize instances of dirich class for each module
 	for (auto& dirichlistitem: dirichlist){
 		if(dirichlistitem.second==NULL){
@@ -1499,20 +1558,11 @@ void system_thr_scan(int type=0)
 				<< std::dec << " not initialized!" 
 				<< std::endl;
 			continue;
-		} 
-		if(TDC_set.at(dirichlistitem.first)==3){
-			std::cerr 
-				<< "Switching off TDCs failed for dirich " 
-				<< std::hex << dirichlistitem.first 
-				<< std::dec << " -> Skipping" 
-				<< std::endl;
-			continue;
 		}
 		switch(type){
 		case 1:
 			threadlist.push_back(
-				new TThread(
-					Form("Thread_%i",(int)dirichlistitem.first), 
+				new std::thread(
 					scanthread_over, 
 					(void*) dirichlistitem.second.get()
 				)
@@ -1521,29 +1571,25 @@ void system_thr_scan(int type=0)
 		case 0:
 		default:
 			threadlist.push_back(
-				new TThread(
-					Form("Thread_%i",(int)dirichlistitem.first), 
+				new std::thread(
 					scanthread_nrml, 
 					(void*) dirichlistitem.second.get()
 					)
 				);
 			break;
 		}
-		usleep(1000);
-		threadlist.back()->Run(); 
 	}
-	// cout << threadlist.size() << std::endl;
-	// std::cout << "Waiting:" << std::endl;
 	usleep(1000);
 
 	for(auto& thread : threadlist){
-			// cout << thread->GetState() << std::endl;
-			// thread.second->Join();
-			thread->Join();
-			thread->Delete();
-	} 
+			thread->join();
+			delete thread;
+	}
+	gcheck_thresholds_mutex.lock();
+	gcheck_thresholds = 1;
+	gcheck_thresholds_mutex.unlock();
 	// threadlist.clear();
-	printf("System scan done ! \n");
+	// printf("System scan done ! \n");
 	switch(type){
 	case 1:
 		save();
@@ -1554,16 +1600,70 @@ void system_thr_scan(int type=0)
 		break;
 	}
 
-	for (auto& TDC_setting_item: TDC_setting) {
-		if(TDC_set.at(TDC_setting_item.first)!=4) continue;
-		ret=trb_register_write(TDC_setting_item.first, 0xc802, TDC_setting_item.second); //switch off TDC
-		if(ret==-1){
-			std::cerr 
-				<< "Switching on TDCs failed for dirich: " 
-				<< std::hex << TDC_setting_item.first 
-				<< std::dec << std::endl;
+}
+
+void* check_thresholds(){
+	// return 0;
+	if(self_check_threshold==true) return 0;
+	int ret = 0;
+	int break_counter=0;
+	std::map<uint16_t,std::array<uint16_t,NRCHANNELS>> thresholds;
+	std::array<uint16_t,NRCHANNELS> temp_array{0};
+	for(auto& dirichlistitem : dirichlist){
+		thresholds.insert(std::make_pair(dirichlistitem.first,temp_array));
+	}
+	uint32_t temp_buffer4mb[BUFFER_SIZE4mb];
+	while(true){
+		gcheck_thresholds_mutex.lock();
+		int temp_gcheck_thresholds = gcheck_thresholds;
+		gcheck_thresholds_mutex.unlock();
+		switch(temp_gcheck_thresholds){
+			case 0:
+			default:
+			return 0;
+			case 1:
+			std::this_thread::sleep_for(std::chrono::microseconds(10*THRESHDELAY));
+			break;
+			case 2:
+			for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
+				uint32_t real_ichannel = ichannel%CHPCHAIN;
+				uint32_t c[] = {
+					(0x0 << 20 | real_ichannel << 24),
+					0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+					(uint32_t)ichannel/CHPCHAIN+1,
+					0x10001
+				}; 
+				ret=Ttrb_register_write_mem(BROADCAST,0xd400,0,c,CHPCHAIN+2);
+				if(ret<0){
+					std::cerr << "Can't retreive Thresholds (1)!!!" << std::endl;
+					break_counter++;
+					if(break_counter>100) return 0;
+					else break;
+				}
+				std::this_thread::sleep_for(std::chrono::microseconds(SPICOMDELAY));
+				ret=Ttrb_register_read(BROADCAST,0xd412,temp_buffer4mb,BUFFER_SIZE4mb);
+				if(ret<0){
+					std::cerr << "Can't retreive Thresholds (2)!!!" << std::endl;
+					break_counter++;
+					if(break_counter>100) return 0;
+					else break;
+				}
+				for(int i=0;i<ret;i+=2){
+					thresholds.at(temp_buffer4mb[i]).at(ichannel) = uint16_t(temp_buffer4mb[i+1] & 0xffff);
+				}
+			}
+			for(auto& threshold : thresholds){
+				dirichlist.at(threshold.first)->Current_Thr_Mutex.lock();
+				dirichlist.at(threshold.first)->gCurrent_Threshold = threshold.second;
+				dirichlist.at(threshold.first)->gCurrent_Threshold_time = std::chrono::steady_clock::now();
+				dirichlist.at(threshold.first)->Current_Thr_Mutex.unlock();
+			}
+			// std::cout << "done checking" << std::endl;
+			std::this_thread::sleep_for(std::chrono::microseconds(SPICOMDELAY));
+			break;
 		}
 	}
+	return 0;
 }
 
 void initialize_diriches(bool search_dirich)
@@ -1581,15 +1681,7 @@ void initialize_diriches(bool search_dirich)
 
 	if(search_dirich){
 		int dirich_counter=0;
-		// const size_t size4mb = 4194304;
-		const size_t size4mb = 8000; //sufficient for 2000 DiRICHes
-		uint32_t buffer[size4mb];
-		for(int i=0;i<100;++i){
-			// TRBAccessMutex.Lock();
-			ret=trb_read_uid(0xfe51, buffer, size4mb);
-			// TRBAccessMutex.UnLock();
-			if(ret>0) break;
-		}
+		ret=Ttrb_read_uid(BROADCAST, buffer4mb, BUFFER_SIZE4mb);
 		if(ret<0){
 			std::cerr << "No TRB3 Modules found!!!" << std::endl;
 			return;
@@ -1598,20 +1690,20 @@ void initialize_diriches(bool search_dirich)
 			// if(buffer[i+3]>0x1200 && buffer[i+3]<0x1200)
 			dirichlist.insert(
 				std::make_pair(
-					uint16_t(buffer[i+3]),
+					uint16_t(buffer4mb[i+3]),
 					std::shared_ptr<dirich>(
-						new dirich(uint16_t(buffer[i+3]))
+						new dirich(uint16_t(buffer4mb[i+3]))
 					)
 				)
 			);
 			++dirich_counter;
-			if(dirichlist.at(uint16_t(buffer[i+3]))->gMeasureTime!=.3){ 
+			if(dirichlist.at(uint16_t(buffer4mb[i+3]))->WhichDirichVersion()!=3){ 
 				//pls change it according to your initialization... Sure one should rather throw during init... but well I am lazy
 				std::cerr 
-					<< "DiRICH 0x" << std::hex << uint16_t(buffer[i+3]) 
+					<< "DiRICH 0x" << std::hex << uint16_t(buffer4mb[i+3]) 
 					<< " not correclty initialized. Deleting!" 
 					<< std::endl;
-				dirichlist.erase(uint16_t(buffer[i+3]));
+				dirichlist.erase(uint16_t(buffer4mb[i+3]));
 			}
 		}
 		std::cout 
@@ -1620,7 +1712,13 @@ void initialize_diriches(bool search_dirich)
 			<< " out of those" 
 			<< std::endl;
 	}
+	if(dirichlist.size()==0) exit(EXIT_FAILURE);
+	// for(auto& dirichlistitem : dirichlist){
+	// 	dirichlistitem.second->gdirich_reporting_level=3;	
+	// }
 	dirichlist.begin()->second->gdirich_reporting_level=1;
+	// std::cout << dirichlist.end()->first << std::endl;
+	// dirichlist.end()->second->gdirich_reporting_level=1;
 }
 
 void setup_scan_parameters(
@@ -1755,13 +1853,11 @@ int main(int argc, char* argv[]){
 					"Dirich can be specified using this options parameter. "
 					"Obviously this function fails if neither a scan was done nor a threshold-setting was loaded!"
 			)
-			// (
-			// 	"find-threshold,r", 
-			// 	"
-			// 		find the perfect threshold for the given dirich/maptm-channel-combination. 
-			// 		No parameters need to be given.
-			// 	"
-			// )
+			(
+				"measure-rate,r", 
+				po::value<std::vector<std::string>>()->multitoken(), 
+					"measure the rate for given dirich (if 0, all diriches)"
+			)
 			// (
 			// 	"find-threshold,i", 
 			// 	po::value<double>(),
@@ -1892,6 +1988,10 @@ int main(int argc, char* argv[]){
 
 	initialize_diriches(1);
 	std::cout << "All set and done" << std::endl;
+	std::thread* threshold_checker= new std::thread(check_thresholds);
+	gcheck_thresholds_mutex.lock();
+	gcheck_thresholds = 1;
+	gcheck_thresholds_mutex.unlock();
 
 	if(vm.count("verbosity")){
 		for(auto& dirich : dirichlist){
@@ -2372,6 +2472,56 @@ int main(int argc, char* argv[]){
 		}
 	}
 
+	std::string rate_file = save_file + "_rate.dat";
+	if(vm.count("measure-rate")){
+		if(vm["measure-rate"].empty() || (vm["measure-rate"].as<std::vector<std::string>>()).size() < 2){
+			std::cout 
+				<< "no or less than two arguments were provided for option --measure-rate:\nno thresholds will be set" 
+				<< std::endl;
+		}
+		else{
+			std::vector<std::vector<std::string>> each_measure_rate_options;
+			std::vector<std::string> temp_vec;
+			for(auto& measure_rate_options : vm["measure-rate"].as<std::vector<std::string>>()){
+				if(measure_rate_options.find("0x")!=std::string::npos || measure_rate_options=="0"){
+					if(temp_vec.size()==2){
+						each_measure_rate_options.push_back(temp_vec);
+					}
+					temp_vec.clear();
+				}
+				temp_vec.push_back(measure_rate_options);
+			}
+			if(temp_vec.size()==2){
+				each_measure_rate_options.push_back(temp_vec);
+			}	 
+			for(auto& one_measure_rate_options : each_measure_rate_options){
+				std::cout << "Measuring rate of: "
+									<< std::stoi(
+										one_measure_rate_options.at(0).substr(one_measure_rate_options.at(0).find("0x")!=std::string::npos ? 
+											one_measure_rate_options.at(0).find("0x")+2 : 0),
+										NULL,
+										16
+									) << "\t"
+									<< " over: "
+									<< std::stod(one_measure_rate_options.at(1))
+									<< " seconds" << std::endl;
+				measure_rate(
+					one_measure_rate_options.at(0) == "0" ? 
+					0 : dirichlist.at(
+						std::stoi(
+							one_measure_rate_options.at(0).substr(one_measure_rate_options.at(0).find("0x")!=std::string::npos ? 
+								one_measure_rate_options.at(0).find("0x")+2 : 0),
+							NULL,
+							16
+						)
+					),
+					rate_file,
+					std::stod(one_measure_rate_options.at(1))
+				);
+			}
+		}
+	}
+
 	std::string str = save_file + "_all_canvases.pdf";
 	uint counter=0;
 	for(auto& canvases : canvasvector){
@@ -2380,6 +2530,12 @@ int main(int argc, char* argv[]){
 		else canvases->Print(str.c_str());
 		counter++;
 	}
+
+	usleep(100000);
+	gcheck_thresholds_mutex.lock();
+	gcheck_thresholds = 0;
+	gcheck_thresholds_mutex.unlock();	
+	threshold_checker->join();
 
 	return 0;
 }

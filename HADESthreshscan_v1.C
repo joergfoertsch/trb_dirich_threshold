@@ -27,6 +27,7 @@
 #include <ctime>
 #include <stdlib.h>
 #include <future>
+// #include <functional>
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -996,95 +997,167 @@ void draw_histo(TH2* histo,TCanvas* canvas)
 
 void set_thresholds(std::shared_ptr<dirich> dirichptr, double thrinmV=30.)
 {
+	if(thrinmV<0.){
+		std::cerr 
+			<< "negative thresholds are not \"allowed\"!\ninverting value" 
+			<< std::endl;
+		thrinmV = -1*thrinmV;
+	}	
 	if(dirichptr==0){
-		// std::cout << "setting threshold for all diriches: " << std::endl;
-		for (auto& dirichlistitem: dirichlist){
-			set_thresholds(dirichlistitem.second, thrinmV);
-		}
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 2;
+		gcheck_thresholds_mutex.unlock();		
+
+		std::vector<std::thread> threads;
+		for(auto& dirichlistitem : dirichlist)
+			threads.push_back(
+				std::thread(
+					[&dirichlistitem, &thrinmV](){
+						dirichlistitem.second->SetThresholdsmV(thrinmV);
+					}
+				)
+			);
+
+		for(auto& thread : threads)
+			thread.join();
+
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 1;
+		gcheck_thresholds_mutex.unlock();
 	}
 	else if(dirichlist.find(dirichptr->GetBoardAddress())!=dirichlist.end()){
 		gcheck_thresholds_mutex.lock();
 		gcheck_thresholds = 2;
 		gcheck_thresholds_mutex.unlock();		
-		if(thrinmV<0.){
-			std::cerr 
-				<< "negative thresholds are not \"allowed\"!\ninverting value" 
-				<< std::endl;
-			thrinmV = -1*thrinmV;
-		}
+
 		dirichptr->SetThresholdsmV(thrinmV);
+
 		gcheck_thresholds_mutex.lock();
 		gcheck_thresholds = 1;
 		gcheck_thresholds_mutex.unlock();		
 	}
 	else{
-			std::cerr 
-				<< "No DiRICH 0x" << std::hex << dirichptr->GetBoardAddress() 
-				<< " found" 
-				<< std::endl;
+		std::cerr 
+			<< "No DiRICH 0x" << std::hex << dirichptr->GetBoardAddress() 
+			<< " found" 
+			<< std::endl;
 	}
 }
 
 void set_thresholds_to_noise(std::shared_ptr<dirich> dirichptr, double part_of_noisewidth=1.5)
 {
 	if(dirichptr==0){
-		// std::cout << "setting threshold for all diriches: " << std::endl;
-		for (auto& dirichlistitem: dirichlist){
-			set_thresholds_to_noise(dirichlistitem.second, part_of_noisewidth);
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 2;
+		gcheck_thresholds_mutex.unlock();		
+
+		std::vector<std::thread> threads;
+		for(auto& dirichlistitem : dirichlist){
+
+			std::array<double,NRCHANNELS> thresholdvals;
+			std::array<uint16_t,NRCHANNELS> noisevalues = dirichlistitem.second->GetNoisewidths();
+			for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
+				thresholdvals.at(ichannel) = 
+					part_of_noisewidth*dirich::Thr_DtomV(.5*noisevalues.at(ichannel));
+			}
+
+			threads.push_back(
+				std::thread(
+					[&dirichlistitem, &thresholdvals](){
+						dirichlistitem.second->SetThresholdsmV(thresholdvals);
+					}
+				)
+			);
 		}
+
+		for(auto& thread : threads)
+			thread.join();
+
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 1;
+		gcheck_thresholds_mutex.unlock();		
 	}
 	else if(dirichlist.find(dirichptr->GetBoardAddress())!=dirichlist.end()){
 		gcheck_thresholds_mutex.lock();
 		gcheck_thresholds = 2;
 		gcheck_thresholds_mutex.unlock();
+
 		std::array<double,NRCHANNELS> thresholdvalues;
 		std::array<uint16_t,NRCHANNELS> noisevalues = dirichptr->GetNoisewidths();
-
 		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
 			thresholdvalues.at(ichannel) = 
 				part_of_noisewidth*dirich::Thr_DtomV(.5*noisevalues.at(ichannel));
 		}
+
 		dirichptr->SetThresholdsmV(thresholdvalues);
 		gcheck_thresholds_mutex.lock();
 		gcheck_thresholds = 1;
 		gcheck_thresholds_mutex.unlock();		
 	}
 	else{
-			std::cerr 
-				<< "No DiRICH 0x" << std::hex << dirichptr->GetBoardAddress() 
-				<< " found" 
-				<< std::endl;
+		std::cerr 
+			<< "No DiRICH 0x" << std::hex << dirichptr->GetBoardAddress() 
+			<< " found" 
+			<< std::endl;
 	}
 }
 
 void set_pattern(std::shared_ptr<dirich> dirichptr, uint32_t pattern=4294967295)
 {
 	if(dirichptr==0){
-		// std::cout << "setting threshold for all diriches: " << std::endl;
-		for (auto& dirichlistitem: dirichlist){
-			set_pattern(dirichlistitem.second, pattern);
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 2;
+		gcheck_thresholds_mutex.unlock();		
+
+		std::vector<std::thread> threads;
+		for(auto& dirichlistitem : dirichlist){
+
+			std::array<double,NRCHANNELS> thresholdvals;
+			std::array<uint16_t,NRCHANNELS> baselines = dirichlistitem.second->GetBaselines();
+			for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
+				thresholdvals.at(ichannel) = 
+				(pattern >> ichannel) % 2 == 1 ? 
+				0 : dirich::Thr_DtomV(OFFTHRESH_low-baselines.at(ichannel));
+			}
+
+			threads.push_back(
+				std::thread(
+					[&dirichlistitem, &thresholdvals](){
+						dirichlistitem.second->SetThresholdsmV(thresholdvals);
+					}
+				)
+			);
 		}
+
+		for(auto& thread : threads)
+			thread.join();
+
+		gcheck_thresholds_mutex.lock();
+		gcheck_thresholds = 1;
+		gcheck_thresholds_mutex.unlock();		
 	}
 	else if(dirichlist.find(dirichptr->GetBoardAddress())!=dirichlist.end()){
 		gcheck_thresholds_mutex.lock();
 		gcheck_thresholds = 2;
 		gcheck_thresholds_mutex.unlock();
-		std::array<double,NRCHANNELS> thresholdvalues;
+
+		std::array<double,NRCHANNELS> thresholdvals;
 		std::array<uint16_t,NRCHANNELS> baselines = dirichptr->GetBaselines();
 		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-			thresholdvalues.at(ichannel) = 
+			thresholdvals.at(ichannel) = 
 			(pattern >> ichannel) % 2 == 1 ? 
 			0 : dirich::Thr_DtomV(OFFTHRESH_low-baselines.at(ichannel));
 		}
-		dirichptr->SetThresholdsmV(thresholdvalues);
+		dirichptr->SetThresholdsmV(thresholdvals);
+		
 		gcheck_thresholds_mutex.lock();
 		gcheck_thresholds = 1;
 		gcheck_thresholds_mutex.unlock();
 	}
 	else{
-			std::cerr << "No DiRICH 0x" << std::hex << dirichptr->GetBoardAddress() 
-				<< " found" 
-				<< std::endl;
+		std::cerr << "No DiRICH 0x" << std::hex << dirichptr->GetBoardAddress() 
+			<< " found" 
+			<< std::endl;
 	}
 }
 
@@ -1667,6 +1740,10 @@ void* check_thresholds(){
 	return 0;
 }
 
+dirich* make_new_dirich(uint16_t uid){
+	return new dirich(uid);
+}
+
 void initialize_diriches(bool search_dirich)
 {
 // void initialize_diriches(bool search_dirich, std::vector<int> ranges, int NrPasses, double meas_time){
@@ -1683,32 +1760,45 @@ void initialize_diriches(bool search_dirich)
 	if(search_dirich){
 		int dirich_counter=0;
 		ret=Ttrb_read_uid(BROADCAST, buffer4mb, BUFFER_SIZE4mb);
-		if(ret<0){
+		if(ret<4){
 			std::cerr << "No TRB3 Modules found!!!" << std::endl;
 			return;
 		}
+		std::unordered_map<uint16_t,std::future<dirich*>> inited_diriches;
 		for(int i=0;i<ret;i+=4){
 			// if(buffer[i+3]>0x1200 && buffer[i+3]<0x1200)
-			dirichlist.insert(
+			inited_diriches.insert(
 				std::make_pair(
 					uint16_t(buffer4mb[i+3]),
-					std::shared_ptr<dirich>(
-						new dirich(uint16_t(buffer4mb[i+3]))
+					std::async(
+						std::launch::async,
+						[](uint16_t uid) ->dirich* {
+							return new dirich(uid);
+						},
+						uint16_t(buffer4mb[i+3])
 					)
 				)
 			);
-			++dirich_counter;
-			if(dirichlist.at(uint16_t(buffer4mb[i+3]))->WhichDirichVersion()!=3){ 
+		++dirich_counter;
+		}
+		for(auto& one_dirich : inited_diriches){
+			one_dirich.second.wait();
+			dirich* temp_dirich_prt = one_dirich.second.get();
+			if(temp_dirich_prt->WhichDirichVersion()!=3){ 
 				//pls change it according to your initialization... Sure one should rather throw during init... but well I am lazy
 				std::cerr 
-					<< "DiRICH 0x" << std::hex << uint16_t(buffer4mb[i+3]) 
+					<< "DiRICH 0x" << std::hex << one_dirich.first 
 					<< " not correclty initialized. Deleting!" 
 					<< std::endl;
-				dirichlist.erase(uint16_t(buffer4mb[i+3]));
+				delete one_dirich.second.get();
 			}
+			else
+				dirichlist.insert(
+					std::make_pair(one_dirich.first,std::shared_ptr<dirich>(temp_dirich_prt))
+				);
 		}
 		std::cout 
-			<< "Found " << std::dec << dirich_counter 
+			<< "Found " << std::dec << inited_diriches.size() 
 			<< " different diriches\nInitialized " << dirichlist.size() 
 			<< " out of those" 
 			<< std::endl;

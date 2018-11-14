@@ -1330,7 +1330,7 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 	file.open(filename);
 	if(!file) std::cerr << "File for loading (" << filename << ") could not be opened!" << std::endl;
 	if(dirichptr==NULL){
-		std::vector<std::thread> threads;
+		std::unordered_map<uint16_t,std::array<double,32>> thresholds;
 		while(!file.eof()){
 			std::string line;
 			std::getline(file, line);
@@ -1375,15 +1375,14 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 							dirich::Thr_mVtoD(width)
 						);
 					}
-					if(set_thr!=0) 
-						threads.push_back(std::thread(
-							[&dirichaddress,&channel,&thresholdinmV](){
-								dirichlist.at(dirichaddress)->SetSingleThresholdmV(
-									channel, 
-									thresholdinmV
-								);
-							}
-						));
+					if(set_thr!=0){
+						if(thresholds.find(dirichaddress)==thresholds.end()){
+							std::array <double,32> temp_array;
+							temp_array.fill(0);
+							thresholds.insert(std::make_pair(dirichaddress,temp_array));
+						}
+						thresholds.at(dirichaddress).at(channel) = thresholdinmV;
+					}
 				}
 				else{ 
 					std::cerr 
@@ -1395,8 +1394,27 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 				}
 			}
 		}
-		for(auto& one_thread : threads)
-			one_thread.join();
+		std::vector<std::thread> threads;
+		if(set_thr!=0){
+			gcheck_thresholds_mutex.lock();
+			gcheck_thresholds = 2;
+			gcheck_thresholds_mutex.unlock();
+
+			for(auto& one_threshold : thresholds)
+				threads.push_back(std::thread(
+					[&one_threshold](){
+						dirichlist.at(one_threshold.first)->SetThresholdsmV(
+							one_threshold.second
+						);
+					}
+				));
+			for(auto& one_thread : threads)
+				one_thread.join();
+
+			gcheck_thresholds_mutex.lock();
+			gcheck_thresholds = 1;
+			gcheck_thresholds_mutex.unlock();
+		}
 		for (auto& dirichlistitem: dirichlist){
 			for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
 				if(dirichlistitem.second->GetSingleBaseline(ichannel)==0) 
@@ -1409,13 +1427,13 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 		}
 	}
 	else if(uselast){
-		std::vector<std::thread> threads;
 		if(set_base!=0){
 			for(int ichannel=0;ichannel<32;++ichannel){
 				dirichptr->SetSingleBaseline_old(ichannel, dirichptr->GetSingleBaseline(ichannel));
 				dirichptr->SetSingleNoisewidth_old(ichannel, dirichptr->GetSingleNoisewidth(ichannel));
 			}
 		}
+		std::unordered_map<uint16_t,std::array<double,32>> thresholds;
 		while(!file.eof()){
 			std::string line;
 			std::getline(file, line);
@@ -1442,19 +1460,37 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 					dirichptr->SetSingleBaseline(channel, baseline);
 					dirichptr->SetSingleNoisewidth(channel, dirich::Thr_mVtoD(width));
 				}
-				if(set_thr!=0) 
-					threads.push_back(std::thread(
-						[&dirichaddress,&channel,&thresholdinmV](){
-							dirichlist.at(dirichaddress)->SetSingleThresholdmV(
-								channel, 
-								thresholdinmV
-							);
-						}
-					));
+				if(set_thr!=0){
+					if(thresholds.find(dirichaddress)==thresholds.end()){
+						std::array <double,32> temp_array;
+						temp_array.fill(0);
+						thresholds.insert(std::make_pair(dirichaddress,temp_array));
+					}
+					thresholds.at(dirichaddress).at(channel) = thresholdinmV;
+				}
 			}
 		}
-		for(auto& one_thread : threads)
-			one_thread.join();		
+		std::vector<std::thread> threads;
+		if(set_thr!=0){
+			gcheck_thresholds_mutex.lock();
+			gcheck_thresholds = 2;
+			gcheck_thresholds_mutex.unlock();
+
+			for(auto& one_threshold : thresholds)
+				threads.push_back(std::thread(
+					[&one_threshold](){
+						dirichlist.at(one_threshold.first)->SetThresholdsmV(
+							one_threshold.second
+						);
+					}
+				));
+			for(auto& one_thread : threads)
+				one_thread.join();
+		
+			gcheck_thresholds_mutex.lock();
+			gcheck_thresholds = 1;
+			gcheck_thresholds_mutex.unlock();
+		}
 	}
 	else{
 		if(set_base!=0){

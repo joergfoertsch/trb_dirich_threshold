@@ -1791,31 +1791,29 @@ void* check_thresholds(){
 	return 0;
 }
 
-dirich* make_new_dirich(uint16_t uid){
-	return new dirich(uid);
-}
-
-void initialize_diriches(bool search_dirich)
+void initialize_diriches(std::vector<uint16_t> diriches = {})
 {
 // void initialize_diriches(bool search_dirich, std::vector<int> ranges, int NrPasses, double meas_time){
 	TH1::AddDirectory(0);
 	gErrorIgnoreLevel = kError;
+	
 	int ret=0;
 	ret=init_ports();
-
 	if(ret==-1){
 		std::cerr << "failed to initialize trb-net ports" << std::endl;
 	}
+
 	dirichlist.clear();
 
-	if(search_dirich){
-		int dirich_counter=0;
+	std::unordered_map<uint16_t,std::future<dirich*>> inited_diriches;
+	int dirich_counter=0;
+
+	if(diriches.empty()){
 		ret=Ttrb_read_uid(BROADCAST, buffer4mb, BUFFER_SIZE4mb);
 		if(ret<4){
 			std::cerr << "No TRB3 Modules found!!!" << std::endl;
 			return;
 		}
-		std::unordered_map<uint16_t,std::future<dirich*>> inited_diriches;
 		for(int i=0;i<ret;i+=4){
 			// if(buffer[i+3]>0x1200 && buffer[i+3]<0x1200)
 			inited_diriches.insert(
@@ -1832,28 +1830,45 @@ void initialize_diriches(bool search_dirich)
 			);
 		++dirich_counter;
 		}
-		for(auto& one_dirich : inited_diriches){
-			one_dirich.second.wait();
-			dirich* temp_dirich_prt = one_dirich.second.get();
-			if(temp_dirich_prt->WhichDirichVersion()!=3){ 
-				//pls change it according to your initialization... Sure one should rather throw during init... but well I am lazy
-				std::cerr 
-					<< "DiRICH 0x" << std::hex << one_dirich.first 
-					<< " not correclty initialized. Deleting!" 
-					<< std::endl;
-				delete one_dirich.second.get();
-			}
-			else
-				dirichlist.insert(
-					std::make_pair(one_dirich.first,std::shared_ptr<dirich>(temp_dirich_prt))
-				);
-		}
-		std::cout 
-			<< "Found " << std::dec << inited_diriches.size() 
-			<< " different diriches\nInitialized " << dirichlist.size() 
-			<< " out of those" 
-			<< std::endl;
 	}
+	else{
+		std::cout << diriches.size() << " " << diriches.at(0) << std::endl;	
+		for(auto dirich_uid : diriches){
+			// if(buffer[i+3]>0x1200 && buffer[i+3]<0x1200)
+			inited_diriches.insert(
+				std::make_pair(
+					dirich_uid,
+					std::async(
+						std::launch::async,
+						[](uint16_t uid) ->dirich* {
+							return new dirich(uid);
+						},
+						dirich_uid
+					)
+				)
+			);
+		++dirich_counter;
+		}
+	}
+	for(auto& one_dirich : inited_diriches){
+		one_dirich.second.wait();
+		dirich* temp_dirich_prt = one_dirich.second.get();
+		if(temp_dirich_prt->WhichDirichVersion()!=3){ 
+			//pls change it according to your initialization... Sure one should rather throw during init... but well I am lazy
+			std::cerr 
+				<< "DiRICH 0x" << std::hex << one_dirich.first 
+				<< " not correclty initialized. Deleting!" 
+				<< std::endl;
+			delete one_dirich.second.get();
+		}
+		else
+			dirichlist.insert(
+				std::make_pair(one_dirich.first,std::shared_ptr<dirich>(temp_dirich_prt))
+			);
+	}
+	std::cout 
+		<< "Found " << std::dec << inited_diriches.size() << " different diriches\n"
+		<< "Initialized " << dirichlist.size() << " out of those" << std::endl;
 	if(dirichlist.size()==0) exit(EXIT_FAILURE);
 	// for(auto& dirichlistitem : dirichlist){
 	// 	dirichlistitem.second->gdirich_reporting_level=3;	
@@ -1936,157 +1951,155 @@ int main(int argc, char* argv[]){
 	// Declare the supported options.
 	po::options_description desc("Allowed options");
 	desc.add_options()
-			(
-				"help,h",
-				"produce help message"
+		(
+			"help,h",
+			"produce help message"
+		)
+		(
+			"verbosity,v", 
+			po::value<int>(), 
+			"Set verbosity level"
+		)
+		(
+			"use-dirich,u", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+			"If this option is specified, "
+			"only diriches named in its parametes will be used during "
+			"this runtime"
+		)
+		(
+			"scan-baseline,b", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+				"Do standard baselinescan for all initialized diriches! "
+				"Additionally groups of six parameters can to be given, "
+				"to alter the scan parameters for one/all diriches : "
+				"dirich (if 0, all diriches), "
+				"measure-time (s), "
+				"threshold-start-value, "
+				"threshold-end-value, "
+				"threshold-step-width, "
+				"number of cycles (two refers to every second channel measured at a time)."
+		)
+		(
+			"draw-scan-baseline,d", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+				"Draw the results of the baselinescan. "
+				"Dirich can be specified using this options parameter. "
+				"Obviously this function fails if no scan was done!"
+		)
+		(
+			"draw-scan-above-noise", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+				"Draw the results of the thresholdscan above the diriches noiseband. "
+				"Dirich can be specified using this options parameter. "
+				"Obviously this function fails if no scan was done!"
 			)
-			(
-				"verbosity,v", 
-				po::value<int>(), 
-				"Set verbosity level"
-			)
-			// (
-			// 	"use-dirich,u", 
-			// 	po::value<std::vector<std::string>>()->multitoken(), 
-			// 	"Add diriches to the dirichlist. If dirich does not exist it will be simulated"
-			// )
-			// (
-			// 	"dont-search-dirich", 
-			// 	"Dont't search for active diriches during startup."
-			// )
-			(
-				"scan-baseline,b", 
-				po::value<std::vector<std::string>>()->multitoken(), 
-					"Do standard baselinescan. "
-					"Six parameters need to be given:"
-					"dirich (if 0, all diriches), "
-					"measure-time (s), "
-					"threshold-start-value, "
-					"threshold-end-value, "
-					"threshold-step-width, "
-					"number of cycles (two refers to every second channel measured at a time). "
-					"Values will be set for all diriches!"
-			)
-			(
-				"draw-scan-baseline,d", 
-				po::value<std::vector<std::string>>()->multitoken(), 
-					"Draw the results of the baselinescan. "
-					"Dirich can be specified using this options parameter. "
-					"Obviously this function fails if no scan was done!"
-			)
-			(
-				"draw-scan-above-noise", 
-				po::value<std::vector<std::string>>()->multitoken(), 
-					"Draw the results of the thresholdscan above the diriches noiseband. "
-					"Dirich can be specified using this options parameter. "
-					"Obviously this function fails if no scan was done!"
-				)
-			(
-				"draw-scan-above-noise-diff-gr", 
-				po::value<std::vector<std::string>>()->multitoken(), 
-					"Draw the results of the baselinescan above the diriches noiseband as differential plot. "
-					"Dirich can be specified using this options parameter. "
-					"Obviously this function fails if no scan was done!"
-			)
-			(
-				"draw-noisewidth,w", 
-				po::value<std::vector<std::string>>()->multitoken(), 
-					"Draw the noisewidth. "
-					"Dirich can be specified using this options parameter. "
-					"Obviously this function fails if neither a scan was done nor a threshold-setting was loaded!"
-			)
-			(
-				"measure-rate,r", 
-				po::value<std::vector<std::string>>()->multitoken(), 
-					"measure the rate for given dirich (if 0, all diriches)"
-			)
-			// (
-			// 	"find-threshold,i", 
-			// 	po::value<double>(),
-			// 	"
-			// 		Find the perfect threshold for the given dirich/maptm-channel-combination. 
-			// 		The parameter specifies the method to find the perfect threshold:
-			// 		\n0: searches for the minimum in the differentiated spectrum or for the minimal gradient
-			// 		\n0<value<5: tries to find peak and sigma of the single photon distribution and 
-			// 			sets the threshold to value*sigma (!!!!currently not implemented!!!)
-			// 		\n5<value<100: tries to find the single photon peak and 
-			// 			sets the threshold to value% of the spp-position
-			// 	"
-			// )
-			(
-				"scan-above-noise,a", 
-				po::value<std::vector<std::string>>()->multitoken(), 
-					"Do scan for threshold-values greater than the diriches noiseband. "
-					"Five parameters need to be given:"
-					"dirich (if 0, all diriches), "
-					"measure-time (s), "
-					"threshold-end-value (mV), "
-					"threshold-step-width (mV), "
-					"number of cycles (two refers to every second channel measured at a time"
-			)
-			(
-				"load-baseline,l", 
-				po::value<std::vector<std::string>>()->multitoken(), 
-					"This option loads the baseline from the file specified in --loading-file. "
-					"If no file was specified, the latest produced file is choosen. "
-					"One can specify a certain dirich by using this options parameter. "
-					"Be aware that this option overwrites the baseline retreived from the baselinescan"
-			)
-			(
-				"load-threshold", 
-				po::value<std::vector<std::string>>()->multitoken(), 
-					"This option loads the threshold from the file specified in --loading-file-threshold. "
-					"If no file was specified, the latest produced file is choosen. "
-					"One can specify a certain dirich by using this options parameter. "
-					"Be aware that the thresholds are overwriten by --set-threshold"
-			)
-			(
-				"loading-file,f", 
-				po::value<std::string>(&loading_file)->default_value(""), 
-				"File to load thresholds and/or baseline from"
-			)
-			(
-				"loading-file-threshold", 
-				po::value<std::string>(&loading_file_threshold)->default_value(""), 
-				"File to load thresholds from. If no file is specified, the normal loading-file is used"
-			)
-			(
-				"set-to-noise,n", 
-				po::value<std::vector<std::string>>()->multitoken(), 
-					"Set threshold to a certain distance in terms of noisewidth for specified diriches. "
-					"First Parameter specifies the dirich (0 equals all DiRICHes), "
-					"the second the part of the half-noisebandwidth."
-			)
-			(
-				"set-threshold,t", 
-				po::value<std::vector<std::string>>()->multitoken(), 
-					"Set threshold for specified diriches in mV. "
-					"First Parameter specifies the dirich (0 equals all DiRICHes), "
-					"the second the threshold. "
-					"Only positive threshold values are accepted, as the minus-sign induces errors."
-			)
-			(
-				"set-pattern,p", 
-				po::value<std::vector<std::string>>()->multitoken(), 
-					"Set pattern for specified diriches. "
-					"First Parameter specifies the dirich (0 equals all DiRICHes), the second the pattern. "
-					"The pattern is derived by interpreting the second parameter "
-					"	as bitpattern and disabling each channel where the corresponding bit equals 0. "
-					"To disable one or many diriches completely you need to put the pattern 00!. "
-					"And... What you are searching for is 1431655765/2863311530"
-			)
-			(
-				"save,s", 
-				po::value<std::vector<std::string>>()->multitoken(), 
-					"Save histograms and data of specified dirich after everything else is executed! "
-					"Autosaves will be still produced and saved via \"DATE_std_save{.thr,.root}\". "
-					"Savefile can be set via --save-file"
-			)
-			(
-				"save-file", 
-				po::value<std::string>(&save_file)->default_value(""), 
-				"Save histograms and data. If no file specified, a std. filename will be produced"
-			)
+		(
+			"draw-scan-above-noise-diff-gr", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+				"Draw the results of the baselinescan above the diriches noiseband as differential plot. "
+				"Dirich can be specified using this options parameter. "
+				"Obviously this function fails if no scan was done!"
+		)
+		(
+			"draw-noisewidth,w", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+				"Draw the noisewidth. "
+				"Dirich can be specified using this options parameter. "
+				"Obviously this function fails if neither a scan was done nor a threshold-setting was loaded!"
+		)
+		(
+			"measure-rate,r", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+				"measure the rate for given dirich (if 0, all diriches)"
+		)
+		// (
+		// 	"find-threshold,i", 
+		// 	po::value<double>(),
+		// 	"
+		// 		Find the perfect threshold for the given dirich/maptm-channel-combination. 
+		// 		The parameter specifies the method to find the perfect threshold:
+		// 		\n0: searches for the minimum in the differentiated spectrum or for the minimal gradient
+		// 		\n0<value<5: tries to find peak and sigma of the single photon distribution and 
+		// 			sets the threshold to value*sigma (!!!!currently not implemented!!!)
+		// 		\n5<value<100: tries to find the single photon peak and 
+		// 			sets the threshold to value% of the spp-position
+		// 	"
+		// )
+		(
+			"scan-above-noise,a", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+				"Do scan for threshold-values greater than the diriches noiseband. "
+				"Five parameters need to be given:"
+				"dirich (if 0, all diriches), "
+				"measure-time (s), "
+				"threshold-end-value (mV), "
+				"threshold-step-width (mV), "
+				"number of cycles (two refers to every second channel measured at a time"
+		)
+		(
+			"load-baseline,l", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+				"This option loads the baseline from the file specified in --loading-file. "
+				"If no file was specified, the latest produced file is choosen. "
+				"One can specify a certain dirich by using this options parameter. "
+				"Be aware that this option overwrites the baseline retreived from the baselinescan"
+		)
+		(
+			"load-threshold", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+				"This option loads the threshold from the file specified in --loading-file-threshold. "
+				"If no file was specified, the latest produced file is choosen. "
+				"One can specify a certain dirich by using this options parameter. "
+				"Be aware that the thresholds are overwriten by --set-threshold"
+		)
+		(
+			"loading-file,f", 
+			po::value<std::string>(&loading_file)->default_value(""), 
+			"File to load thresholds and/or baseline from"
+		)
+		(
+			"loading-file-threshold", 
+			po::value<std::string>(&loading_file_threshold)->default_value(""), 
+			"File to load thresholds from. If no file is specified, the normal loading-file is used"
+		)
+		(
+			"set-to-noise,n", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+				"Set threshold to a certain distance in terms of noisewidth for specified diriches. "
+				"First Parameter specifies the dirich (0 equals all DiRICHes), "
+				"the second the part of the half-noisebandwidth."
+		)
+		(
+			"set-threshold,t", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+				"Set threshold for specified diriches in mV. "
+				"First Parameter specifies the dirich (0 equals all DiRICHes), "
+				"the second the threshold. "
+				"Only positive threshold values are accepted, as the minus-sign induces errors."
+		)
+		(
+			"set-pattern,p", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+				"Set pattern for specified diriches. "
+				"First Parameter specifies the dirich (0 equals all DiRICHes), the second the pattern. "
+				"The pattern is derived by interpreting the second parameter "
+				"	as bitpattern and disabling each channel where the corresponding bit equals 0. "
+				"To disable one or many diriches completely you need to put the pattern 00!. "
+				"And... What you are searching for is 1431655765/2863311530"
+		)
+		(
+			"save,s", 
+			po::value<std::vector<std::string>>()->multitoken(), 
+				"Save histograms and data of specified dirich after everything else is executed! "
+				"Autosaves will be still produced and saved via \"DATE_std_save{.thr,.root}\". "
+				"Savefile can be set via --save-file"
+		)
+		(
+			"save-file", 
+			po::value<std::string>(&save_file)->default_value(""), 
+			"Save histograms and data. If no file specified, a std. filename will be produced"
+		)
 	;
 // implicit_value(std::vector<std::string>{"0"},"0")
 	po::variables_map vm;
@@ -2097,6 +2110,7 @@ int main(int argc, char* argv[]){
 		std::cout << desc << std::endl;
 		return 0;
 	}
+	
 	if(loading_file==""){
 		fs::path latest;
 		std::time_t latest_tm {};
@@ -2114,21 +2128,23 @@ int main(int argc, char* argv[]){
 		loading_file = latest.filename().string();
 	}
 
-	// if(vm.count("use-diriches")){
-	// 	 for(auto& use_diriches_options : vm["use-diriches"].as<std::vector<std::string>>()){
-	// 		 dirichlist.emplace(
-	// 		 	std::stoi(
-	// 		 		use_diriches_options.substr(use_diriches_options.find("0x")!=std::string::npos ? 
-	// 		 		use_diriches_options.find("0x")+2 : 0),NULL,16)
-	// 		 	,(dirich*)NULL
-	// 	 	);
-	// 	 }
-	// }
+	if(vm.count("use-dirich")){
+		std::vector<uint16_t> temp_diriches;
+		for(auto& use_diriches_options : vm["use-dirich"].as<std::vector<std::string>>()){
+			temp_diriches.push_back(
+				std::stoi(
+					use_diriches_options.substr(use_diriches_options.find("0x")!=std::string::npos ? 
+					use_diriches_options.find("0x")+2 : 0),NULL,16
+				)
+			);
+		}
+		std::cout << temp_diriches.size() << " " << temp_diriches.at(0) << std::endl;
+		initialize_diriches(temp_diriches);
+	}
+	else{
+		initialize_diriches();
+	}
 
-	// if(!vm.count("dont-search-dirich")) initialize_diriches(1);
-	// else initialize_diriches(0);
-
-	initialize_diriches(1);
 	std::cout << "All set and done" << std::endl;
 	std::thread* threshold_checker= new std::thread(check_thresholds);
 	gcheck_thresholds_mutex.lock();

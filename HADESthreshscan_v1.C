@@ -1859,23 +1859,28 @@ void initialize_diriches(std::vector<uint16_t> diriches = {})
 				<< "DiRICH 0x" << std::hex << one_dirich.first 
 				<< " not correclty initialized. Deleting!" 
 				<< std::endl;
-			delete one_dirich.second.get();
+			delete temp_dirich_prt;
 		}
 		else
 			dirichlist.insert(
 				std::make_pair(one_dirich.first,std::shared_ptr<dirich>(temp_dirich_prt))
 			);
 	}
-	std::cout 
-		<< "Found " << std::dec << inited_diriches.size() << " different diriches\n"
-		<< "Initialized " << dirichlist.size() << " out of those" << std::endl;
+	if(diriches.empty()){
+		std::cout 
+			<< "Found " << std::dec << inited_diriches.size() << " different diriches\n"
+			<< "Initialized " << dirichlist.size() << " out of those" << std::endl;
+	}
+	else{
+		std::cout 
+			<< "Looked for " << std::dec << diriches.size() << " different diriches\n"
+			<< "Initialized " << dirichlist.size() << " out of those" << std::endl;
+	}
 	if(dirichlist.size()==0) exit(EXIT_FAILURE);
 	// for(auto& dirichlistitem : dirichlist){
 	// 	dirichlistitem.second->gdirich_reporting_level=3;	
 	// }
 	dirichlist.begin()->second->gdirich_reporting_level=1;
-	// std::cout << dirichlist.end()->first << std::endl;
-	// dirichlist.end()->second->gdirich_reporting_level=1;
 }
 
 void setup_scan_parameters(
@@ -1969,7 +1974,7 @@ int main(int argc, char* argv[]){
 		)
 		(
 			"scan-baseline,b", 
-			po::value<std::vector<std::string>>()->multitoken(), 
+			po::value<std::vector<std::string>>()->multitoken()->zero_tokens(), 
 				"Do standard baselinescan for all initialized diriches! "
 				"Additionally groups of six parameters can to be given, "
 				"to alter the scan parameters for one/all diriches : "
@@ -2110,7 +2115,7 @@ int main(int argc, char* argv[]){
 		std::cout << desc << std::endl;
 		return 0;
 	}
-	
+
 	if(loading_file==""){
 		fs::path latest;
 		std::time_t latest_tm {};

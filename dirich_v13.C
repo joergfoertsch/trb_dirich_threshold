@@ -317,7 +317,6 @@ dirich::dirich(uint16_t BoardAddress)
 	for(int failed=0;failed<100;++failed){
 		// std::cout << gBoardAddress << " " << failed << std::endl;
 		ret=Ttrb_register_write_mem(gBoardAddress,0xd400,0,c,CHPCHAIN+2);
-		if(ret<0) return;
 		std::this_thread::sleep_for(std::chrono::microseconds(SPICOMDELAY));
 		ret=Ttrb_register_read(gBoardAddress,0xd412,ret_c.data(),2);
 		if(ret<0) return;
@@ -698,7 +697,9 @@ void dirich::SetSingleThresholdmV(uint8_t ichannel ,double thrinmV=30.)
 			<< "'s setting Thresholds failed" 
 			<< std::endl;
 	} 
-	fthresholdmV.at(ichannel) = thrinmV;
+	if(thrinmV!=0){
+		fthresholdmV.at(ichannel) = thrinmV;
+	}
 
 }
 
@@ -733,7 +734,11 @@ void dirich::SetThresholdsmV(std::array<double,NRCHANNELS> thrarrayinmV)
 	 	<< std::endl;
 	 return;
 	}	
-	fthresholdmV = thrarrayinmV;
+	for(uint i=0;i<thrarrayinmV.size();++i){
+		if(thrarrayinmV.at(i)!=0){
+			fthresholdmV.at(i) = thrarrayinmV.at(i);
+		}
+	}
 }
 
 

@@ -29,6 +29,10 @@
 #include <future>
 // #include <functional>
 
+#include <sys/ioctl.h>
+#include <stdio.h>
+#include <unistd.h>
+
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/range.hpp>
@@ -1012,7 +1016,7 @@ void set_thresholds(std::shared_ptr<dirich> dirichptr, double thrinmV=30.)
 		for(auto& dirichlistitem : dirichlist)
 			threads.push_back(
 				std::thread(
-					[&dirichlistitem, &thrinmV](){
+					[&dirichlistitem, thrinmV](){
 						dirichlistitem.second->SetThresholdsmV(thrinmV);
 					}
 				)
@@ -1046,14 +1050,13 @@ void set_thresholds(std::shared_ptr<dirich> dirichptr, double thrinmV=30.)
 
 void set_thresholds_to_noise(std::shared_ptr<dirich> dirichptr, double part_of_noisewidth=1.5)
 {
-	if(dirichptr==0){
+	if(dirichptr==nullptr){
 		gcheck_thresholds_mutex.lock();
 		gcheck_thresholds = 2;
 		gcheck_thresholds_mutex.unlock();		
 
 		std::vector<std::thread> threads;
 		for(auto& dirichlistitem : dirichlist){
-
 			std::array<double,NRCHANNELS> thresholdvals;
 			std::array<uint16_t,NRCHANNELS> noisevalues = dirichlistitem.second->GetNoisewidths();
 			for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
@@ -1063,7 +1066,7 @@ void set_thresholds_to_noise(std::shared_ptr<dirich> dirichptr, double part_of_n
 
 			threads.push_back(
 				std::thread(
-					[&dirichlistitem, &thresholdvals](){
+					[&dirichlistitem, thresholdvals](){
 						dirichlistitem.second->SetThresholdsmV(thresholdvals);
 					}
 				)
@@ -1072,7 +1075,7 @@ void set_thresholds_to_noise(std::shared_ptr<dirich> dirichptr, double part_of_n
 
 		for(auto& thread : threads)
 			thread.join();
-
+		
 		gcheck_thresholds_mutex.lock();
 		gcheck_thresholds = 1;
 		gcheck_thresholds_mutex.unlock();		
@@ -1122,7 +1125,7 @@ void set_pattern(std::shared_ptr<dirich> dirichptr, uint32_t pattern=4294967295)
 
 			threads.push_back(
 				std::thread(
-					[&dirichlistitem, &thresholdvals](){
+					[&dirichlistitem, thresholdvals](){
 						dirichlistitem.second->SetThresholdsmV(thresholdvals);
 					}
 				)
@@ -1329,7 +1332,7 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 	std::ifstream file;
 	file.open(filename);
 	if(!file) std::cerr << "File for loading (" << filename << ") could not be opened!" << std::endl;
-	if(dirichptr==NULL){
+	if(dirichptr==nullptr){
 		std::unordered_map<uint16_t,std::array<double,32>> thresholds;
 		while(!file.eof()){
 			std::string line;
@@ -1714,15 +1717,15 @@ void system_thr_scan(int type=0)
 	gcheck_thresholds_mutex.unlock();
 	// threadlist.clear();
 	// printf("System scan done ! \n");
-	switch(type){
-	case 1:
-		save();
-		break;
-	case 0:
-	default:
-		save();
-		break;
-	}
+	// switch(type){
+	// case 1:
+	// 	save();
+	// 	break;
+	// case 0:
+	// default:
+	// 	save();
+	// 	break;
+	// }
 
 }
 
@@ -1774,16 +1777,20 @@ void* check_thresholds(){
 					else break;
 				}
 				for(int i=0;i<ret;i+=2){
-					thresholds.at(temp_buffer4mb[i]).at(ichannel) = uint16_t(temp_buffer4mb[i+1] & 0xffff);
+					try{
+						thresholds.at(temp_buffer4mb[i]).at(ichannel) = uint16_t(temp_buffer4mb[i+1] & 0xffff); }
+					catch(...){}
 				}
 			}
+			auto curr_time = std::chrono::steady_clock::now();
 			for(auto& threshold : thresholds){
-				dirichlist.at(threshold.first)->Current_Thr_Mutex.lock();
-				dirichlist.at(threshold.first)->gCurrent_Threshold = threshold.second;
-				dirichlist.at(threshold.first)->gCurrent_Threshold_time = std::chrono::steady_clock::now();
-				dirichlist.at(threshold.first)->Current_Thr_Mutex.unlock();
+				auto& dirich = dirichlist.at(threshold.first);
+
+				dirich->Current_Thr_Mutex.lock();
+				dirich->gCurrent_Threshold = threshold.second;
+				dirich->gCurrent_Threshold_time = curr_time;
+				dirich->Current_Thr_Mutex.unlock();
 			}
-			// std::cout << "done checking" << std::endl;
 			std::this_thread::sleep_for(std::chrono::microseconds(SPICOMDELAY));
 			break;
 		}
@@ -1832,8 +1839,7 @@ void initialize_diriches(std::vector<uint16_t> diriches = {})
 		}
 	}
 	else{
-		std::cout << diriches.size() << " " << diriches.at(0) << std::endl;	
-		for(auto dirich_uid : diriches){
+		for(auto& dirich_uid : diriches){
 			// if(buffer[i+3]>0x1200 && buffer[i+3]<0x1200)
 			inited_diriches.insert(
 				std::make_pair(
@@ -1953,12 +1959,17 @@ int main(int argc, char* argv[]){
 	std::string loading_file = "";
 	std::string loading_file_threshold = "";
 	std::string save_file = "";
-	// Declare the supported options.
-	po::options_description desc("Allowed options");
+
+  struct winsize w;
+  ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+
+	// Declare the supported options.	
+	po::options_description desc("Allowed options", (unsigned)w.ws_col, 
+      (unsigned)w.ws_col/3);
 	desc.add_options()
 		(
 			"help,h",
-			"produce help message"
+			"produce this help message"
 		)
 		(
 			"verbosity,v", 
@@ -1987,36 +1998,38 @@ int main(int argc, char* argv[]){
 		)
 		(
 			"draw-scan-baseline,d", 
-			po::value<std::vector<std::string>>()->multitoken(), 
+			po::value<std::vector<std::string>>()->multitoken()->zero_tokens(), 
 				"Draw the results of the baselinescan. "
 				"Dirich can be specified using this options parameter. "
 				"Obviously this function fails if no scan was done!"
 		)
 		(
 			"draw-scan-above-noise", 
-			po::value<std::vector<std::string>>()->multitoken(), 
+			po::value<std::vector<std::string>>()->multitoken()->zero_tokens(), 
 				"Draw the results of the thresholdscan above the diriches noiseband. "
 				"Dirich can be specified using this options parameter. "
 				"Obviously this function fails if no scan was done!"
 			)
 		(
 			"draw-scan-above-noise-diff-gr", 
-			po::value<std::vector<std::string>>()->multitoken(), 
+			po::value<std::vector<std::string>>()->multitoken()->zero_tokens(), 
 				"Draw the results of the baselinescan above the diriches noiseband as differential plot. "
 				"Dirich can be specified using this options parameter. "
 				"Obviously this function fails if no scan was done!"
 		)
 		(
 			"draw-noisewidth,w", 
-			po::value<std::vector<std::string>>()->multitoken(), 
+			po::value<std::vector<std::string>>()->multitoken()->zero_tokens(), 
 				"Draw the noisewidth. "
 				"Dirich can be specified using this options parameter. "
 				"Obviously this function fails if neither a scan was done nor a threshold-setting was loaded!"
 		)
 		(
-			"measure-rate,r", 
-			po::value<std::vector<std::string>>()->multitoken(), 
-				"measure the rate for given dirich (if 0, all diriches)"
+			"measure-rate,r",
+			po::value<double>()->implicit_value(10.),
+				"measure the rate for all initialized diriches. "
+				"Parameter is the measure time in seconds. If non is given, the standard value is 10s. "
+				"Results are saved in an \"_rate.dat\"-file with corresponding date/time."
 		)
 		// (
 		// 	"find-threshold,i", 
@@ -2033,35 +2046,37 @@ int main(int argc, char* argv[]){
 		// )
 		(
 			"scan-above-noise,a", 
-			po::value<std::vector<std::string>>()->multitoken(), 
-				"Do scan for threshold-values greater than the diriches noiseband. "
-				"Five parameters need to be given:"
+			po::value<std::vector<std::string>>()->multitoken()->zero_tokens(), 
+				"Do scan for threshold-values greater than the diriches noiseband " 
+				"for all initialized diriches! "
+				"Additionally groups of five parameters can to be given, "
+				"to alter the scan parameters for one/all diriches : "
 				"dirich (if 0, all diriches), "
 				"measure-time (s), "
 				"threshold-end-value (mV), "
 				"threshold-step-width (mV), "
-				"number of cycles (two refers to every second channel measured at a time"
+				"number of cycles (two refers to every second channel measured at a time)."
 		)
 		(
 			"load-baseline,l", 
-			po::value<std::vector<std::string>>()->multitoken(), 
+			po::value<std::vector<std::string>>()->multitoken()->zero_tokens(), 
 				"This option loads the baseline from the file specified in --loading-file. "
 				"If no file was specified, the latest produced file is choosen. "
 				"One can specify a certain dirich by using this options parameter. "
 				"Be aware that this option overwrites the baseline retreived from the baselinescan"
 		)
 		(
+			"loading-file,f", 
+			po::value<std::string>(&loading_file)->default_value(""), 
+			"File to load thresholds and/or baseline from"
+		)
+		(
 			"load-threshold", 
-			po::value<std::vector<std::string>>()->multitoken(), 
+			po::value<std::vector<std::string>>()->multitoken()->zero_tokens(), 
 				"This option loads the threshold from the file specified in --loading-file-threshold. "
 				"If no file was specified, the latest produced file is choosen. "
 				"One can specify a certain dirich by using this options parameter. "
 				"Be aware that the thresholds are overwriten by --set-threshold"
-		)
-		(
-			"loading-file,f", 
-			po::value<std::string>(&loading_file)->default_value(""), 
-			"File to load thresholds and/or baseline from"
 		)
 		(
 			"loading-file-threshold", 
@@ -2078,7 +2093,7 @@ int main(int argc, char* argv[]){
 		(
 			"set-threshold,t", 
 			po::value<std::vector<std::string>>()->multitoken(), 
-				"Set threshold for specified diriches in mV. "
+				"Set threshold for specified diriches in mV after pre amplification. "
 				"First Parameter specifies the dirich (0 equals all DiRICHes), "
 				"the second the threshold. "
 				"Only positive threshold values are accepted, as the minus-sign induces errors."
@@ -2094,24 +2109,49 @@ int main(int argc, char* argv[]){
 				"And... What you are searching for is 1431655765/2863311530"
 		)
 		(
-			"save,s", 
-			po::value<std::vector<std::string>>()->multitoken(), 
-				"Save histograms and data of specified dirich after everything else is executed! "
+			"save-file", 
+			po::value<std::string>(&save_file)->default_value(""), 
+			"Names the name and path of the file to be saved to. "
+			"If not specified, a std. filename will be produced according to: "
+			"\"(current_date_time)_std_save{.thr,.root}\""
+		)
+		(
+			"no-autosave", 
+			"Disables the autosave feature. "
+			"Use this and the --save-base/-s option to only save baseline-data."
+		)
+		(
+			"save-base,s", 
+			po::value<std::vector<std::string>>()->multitoken()->zero_tokens(), 
+				"Save data of all or (via parameter) specified dirich after everything else is executed! "
 				"Autosaves will be still produced and saved via \"DATE_std_save{.thr,.root}\". "
 				"Savefile can be set via --save-file"
 		)
 		(
-			"save-file", 
-			po::value<std::string>(&save_file)->default_value(""), 
-			"Save histograms and data. If no file specified, a std. filename will be produced"
-		)
+			"save-graphs,g", 
+			po::value<std::vector<std::string>>()->multitoken()->zero_tokens(), 
+				"Save histograms of all or (via parameter) specified dirich after everything else is executed! "
+				"Autosaves will be still produced and saved via \"DATE_std_save{.thr,.root}\". "
+				"Savefile can be set via --save-file"
+		)	
 	;
-// implicit_value(std::vector<std::string>{"0"},"0")
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
 	po::notify(vm);
 
 	if (vm.count("help")) {
+		std::cout << "This program can be used to perform the the following tasks for a DiRICH-FEB of the TRB family:\n"
+		<< "-- measure the baseline position and noise width\n"
+		<< "-- set thresholds according to basline and noisewidth\n"
+		<< "-- save and load baslines and thresholds. If not disabled (--no-autosave), a save is made after each scan/change of thresholds\n"
+		<< "-- measure rates w.r.t threshold above baseline\n"
+		<< "-- measure rates at a certain threshold\n"
+		<< "-- visualize baselines and signal-shapes above the noise band\n"
+		<< "\n\nA standard command-chain used would be:\n"
+		<< "\t\t./HADESthreshscan_v1 -b -t 50\n Makes a baselinescan (-b) and sets the threshold to 50mV above baseline for all initialized diriches (-t)\n\n"
+		<< "\t\t./HADESthreshscan_v1 -l -n 5\n Loads the baselines from the latest produced threshold-file (*.thr) (-l) and sets the threshold to 5*noiswidth/2 for all initialized diriches (-n)\n\n"
+		<< "\t\t./HADESthreshscan_v1 -b --loading-file-threshold path/to/threshold.thr --load-threshold\n Makes a baseline scan and sets thresholds (--load-threshold) according to the specified file (--loading-file-threshold)\n"
+		<< std::endl;
 		std::cout << desc << std::endl;
 		return 0;
 	}
@@ -2143,7 +2183,6 @@ int main(int argc, char* argv[]){
 				)
 			);
 		}
-		std::cout << temp_diriches.size() << " " << temp_diriches.at(0) << std::endl;
 		initialize_diriches(temp_diriches);
 	}
 	else{
@@ -2163,7 +2202,7 @@ int main(int argc, char* argv[]){
 	}
 
 	if(vm.count("scan-baseline")){
-		if(vm["scan-baseline"].empty() || (vm["scan-baseline"].as<std::vector<std::string>>()).size() < 6){
+		if(vm["scan-baseline"].as<std::vector<std::string>>().size() < 6){
 			std::cout 
 				<< "no or less than six arguments were provided for option --scan-baseline:"
 				"\nrunning scan with std. parameters" 
@@ -2218,7 +2257,7 @@ int main(int argc, char* argv[]){
 
 		if(vm.count("draw-scan-baseline")){
 			// std::cout << "draw-scan-baseline" << std::endl;
-			if(vm["draw-scan-baseline"].empty()){
+			if(vm["draw-scan-baseline"].as<std::vector<std::string>>().empty()){
 				draw_histo(get_2D_rate_histo(NULL),NULL);
 			}
 			for(auto& draw_scan_baseline_options : vm["draw-scan-baseline"].as<std::vector<std::string>>()){
@@ -2243,7 +2282,7 @@ int main(int argc, char* argv[]){
 			}
 		}
 		if(vm.count("draw-noisewidth")){
-			if(vm["draw-noisewidth"].empty()){
+			if(vm["draw-noisewidth"].as<std::vector<std::string>>().empty()){
 				draw_histo(get_noisewidth_histo(NULL),NULL);
 			}
 			for(auto& draw_noisewidth_options : vm["draw-noisewidth"].as<std::vector<std::string>>()){
@@ -2269,16 +2308,19 @@ int main(int argc, char* argv[]){
 	}
 
 	if(vm.count("load-baseline")){
-		// std::cout << "inside load baseline" << std::endl;
 		if(loading_file==""){
-			std::cout << "no loading-file found!\n! aborting !" << std::endl;
+			std::cout << "no loading-file found!\n! Loading no baselines !" << std::endl;
 		}
 		else{
 			std::cout << "loading_file: " << loading_file << std::endl;
-			for(auto& load_baseline_opt : vm["load-baseline"].as<std::vector<std::string>>()){
-				if(load_baseline_opt=="0") 
-					load_base(NULL, loading_file, 0, 1, 0);
-				else 
+			if(vm["load-baseline"].as<std::vector<std::string>>().empty()){ 
+				load_base(nullptr, loading_file, 0, 1, 0);
+			}
+			else for(auto& load_baseline_opt : vm["load-baseline"].as<std::vector<std::string>>()){
+				if(load_baseline_opt=="0"){
+					load_base(nullptr, loading_file, 0, 1, 0);
+				}
+				else{
 					load_base(
 						dirichlist.at(
 							std::stoi(
@@ -2288,13 +2330,11 @@ int main(int argc, char* argv[]){
 								16)
 							), 
 						loading_file, 
-						0, 
-						1, 
-						0
-					);
+						0, 1, 0);
+				}
 			}
 			if(vm.count("draw-noisewidth")){
-				if(vm["draw-noisewidth"].empty()){
+				if(vm["draw-noisewidth"].as<std::vector<std::string>>().empty()){
 					draw_histo(get_noisewidth_histo(NULL),NULL);
 				}
 				for(auto& draw_noisewidth_options : vm["draw-noisewidth"].as<std::vector<std::string>>()){
@@ -2319,7 +2359,7 @@ int main(int argc, char* argv[]){
 	}
 
 	if(vm.count("scan-above-noise")){
-		if(vm["scan-above-noise"].empty() || (vm["scan-above-noise"].as<std::vector<std::string>>()).size() < 5){
+		if(vm["scan-above-noise"].as<std::vector<std::string>>().size() < 5){
 			std::cout 
 			<< "no or less than five arguments were provided for option --scan-above-noise:\nrunning scan with std. parameters" 
 			<< std::endl;
@@ -2372,34 +2412,43 @@ int main(int argc, char* argv[]){
 	}
 
 	if(vm.count("load-threshold")){
-		if(loading_file_threshold=="")
+		if(loading_file_threshold==""){
 			loading_file_threshold=loading_file;
-		for(auto& load_threshold_options : vm["load-threshold"].as<std::vector<std::string>>()){
-			std::cout << "loading_file_threshold: " << loading_file_threshold << std::endl;
-			if(load_threshold_options=="0") 
+		}
+		if(loading_file_threshold==""){
+			std::cout << "no loading-file found!\n! Loading no thresholds !" << std::endl;
+		}
+		else{
+			if(vm["load-threshold"].as<std::vector<std::string>>().empty()){
+				std::cout << "loading_file_threshold: " << loading_file_threshold << std::endl;
 				load_base(NULL, loading_file_threshold,0, 0, 1);
-			else 
-				load_base(
-					dirichlist.at(
-							std::stoi(
-							load_threshold_options.substr(
-								load_threshold_options.find("0x")!=std::string::npos ? load_threshold_options.find("0x")+2 : 0
-								),
-							NULL,
-							16
-						)
-					), 
-					loading_file_threshold, 
-					0, 
-					0, 
-					1
-				);
+			}
+			for(auto& load_threshold_options : vm["load-threshold"].as<std::vector<std::string>>()){
+				std::cout << "loading_file_threshold: " << loading_file_threshold << std::endl;
+				if(load_threshold_options=="0"){
+					load_base(NULL, loading_file_threshold,0, 0, 1);
+				}
+				else{
+					load_base(
+						dirichlist.at(
+								std::stoi(
+								load_threshold_options.substr(
+									load_threshold_options.find("0x")!=std::string::npos ? load_threshold_options.find("0x")+2 : 0
+									),
+								NULL,
+								16
+							)
+						), 
+						loading_file_threshold, 
+						0, 0, 1);
+				}
+			}
 		}
 	}
 
 	if(vm.count("scan-above-noise")){
 		if(vm.count("draw-scan-above-noise")){
-			if(vm["draw-scan-above-noise"].empty()){
+			if(vm["draw-scan-above-noise"].as<std::vector<std::string>>().empty()){
 				draw_histo(get_2D_rate_over_thr_histo(NULL),NULL);
 			}
 			for(auto& draw_scan_above_noise_options : vm["draw-scan-above-noise"].as<std::vector<std::string>>()){
@@ -2422,7 +2471,7 @@ int main(int argc, char* argv[]){
 			}
 		}
 		if(vm.count("draw-scan-above-noise-diff-gr")){
-			if(vm["draw-scan-above-noise-diff-gr"].empty()){
+			if(vm["draw-scan-above-noise-diff-gr"].as<std::vector<std::string>>().empty()){
 				draw_multigraph(get_2D_mgr_diff_over_thr_histo(NULL),NULL);
 			}
 			for(auto& draw_scan_above_noise_diff_options : vm["draw-scan-above-noise-diff-gr"].as<std::vector<std::string>>()){
@@ -2447,10 +2496,11 @@ int main(int argc, char* argv[]){
 	}
 
 	if(vm.count("set-to-noise")){
-		if(vm["set-to-noise"].empty() || (vm["set-to-noise"].as<std::vector<std::string>>()).size() < 2){
-			std::cout 
-				<< "no or less than two arguments were provided for option --set-to-noise:\nno thresholds will be set" 
-				<< std::endl;
+		if(vm["set-to-noise"].as<std::vector<std::string>>().size() < 2){
+			std::cout << "Setting Threshold of all diriches to: " 
+				<< std::stod(vm["set-to-noise"].as<std::vector<std::string>>().at(0))
+				<< " times the half-noisebandwidth" << std::endl;
+			set_thresholds_to_noise(nullptr, std::stod(vm["set-to-noise"].as<std::vector<std::string>>().at(0)));
 		}
 		else{
 			std::vector<std::vector<std::string>> each_set_threshold_noise_opt;
@@ -2495,10 +2545,11 @@ int main(int argc, char* argv[]){
 	}
 
 	if(vm.count("set-threshold")){
-		if(vm["set-threshold"].empty() || (vm["set-threshold"].as<std::vector<std::string>>()).size() < 2){
-			std::cout 
-				<< "no or less than two arguments were provided for option --set-threshold:\nno thresholds will be set" 
-				<< std::endl;
+		if(vm["set-threshold"].as<std::vector<std::string>>().size() < 2){
+			std::cout << "Setting Threshold of all diriches to: "
+				<< std::stod(vm["set-threshold"].as<std::vector<std::string>>().at(0))
+				<< " mV" << std::endl;
+			set_thresholds(0, std::stoi(vm["set-threshold"].as<std::vector<std::string>>().at(0)));
 		}
 		else{
 			std::vector<std::vector<std::string>> each_set_threshold_opt;
@@ -2543,10 +2594,13 @@ int main(int argc, char* argv[]){
 	}
 
 	if(vm.count("set-pattern")){
-		if(vm["set-pattern"].empty() || (vm["set-pattern"].as<std::vector<std::string>>()).size() < 2){
-			std::cout 
-				<< "no or less than two arguments were provided for option --set-pattern:\nno thresholds will be set" 
-				<< std::endl;
+		if(vm["set-pattern"].as<std::vector<std::string>>().size() < 2){
+			std::cout << "Setting all diriches to a pattern of: ";
+			for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){ 
+				std::cout << (std::stol(vm["set-pattern"].as<std::vector<std::string>>().at(0)) >> ichannel) % 2;
+			}
+			std::cout << std::endl;
+			set_pattern(0, std::stol(vm["set-pattern"].as<std::vector<std::string>>().at(0)));
 		}
 		else{
 			std::vector<std::vector<std::string>> each_set_pattern_opt;
@@ -2564,11 +2618,11 @@ int main(int argc, char* argv[]){
 				each_set_pattern_opt.push_back(temp_vec);
 			}	 
 			for(auto& one_set_pattern_opt : each_set_pattern_opt){
-				std::cout << "Setting Threshold of: "
+				std::cout << "Setting "
 									<< std::stoi(
 										one_set_pattern_opt.at(0).substr(one_set_pattern_opt.at(0).find("0x")!=std::string::npos ? 
 										one_set_pattern_opt.at(0).find("0x")+2 : 0),NULL,16) 
-									<< "\t"	<< " to: ";
+									<< "\t"	<< " to a pattern of: ";
 									for(int ichannel=0;ichannel<NRCHANNELS;++ichannel) 
 										std::cout << (std::stol(one_set_pattern_opt.at(1)) >> ichannel) % 2;
 									std::cout << std::endl;
@@ -2601,11 +2655,22 @@ int main(int argc, char* argv[]){
 		save_file=vm["save-file"].as<std::string>();
 	}
 
-	if(vm.count("save")){
-		for(auto& save_options : vm["save"].as<std::vector<std::string>>()){
+	if(!vm.count("no-autosave") 
+			&& (vm.count("scan-baseline") || vm.count("scan-above-noise") 
+					|| vm.count("set-to-noise") || vm.count("set-threshold")
+					|| vm.count("set-pattern") )
+	){
+		save_base(NULL,save_file,1);
+		save_graphs(NULL,save_file);
+	}
+
+	if(vm.count("save-base")){
+		if(vm["save-base"].as<std::vector<std::string>>().empty()){
+			save_base(NULL,save_file,1);
+		}
+		for(auto& save_options : vm["save-base"].as<std::vector<std::string>>()){
 			if(save_options=="0"){
 				save_base(NULL,save_file,1);
-				save_graphs(NULL,save_file);
 			}
 			else{
 				save_base(
@@ -2620,6 +2685,18 @@ int main(int argc, char* argv[]){
 					save_file,
 					1
 				);
+			}
+		}
+	}
+	if(vm.count("save-graphs")){
+		if(vm["save-graphs"].as<std::vector<std::string>>().empty()){
+			save_graphs(NULL,save_file);
+		}
+		for(auto& save_options : vm["save-graphs"].as<std::vector<std::string>>()){
+			if(save_options=="0"){
+				save_graphs(NULL,save_file);
+			}
+			else{
 				save_graphs(
 					dirichlist.at(
 						std::stoi(
@@ -2627,8 +2704,8 @@ int main(int argc, char* argv[]){
 								save_options.find("0x")+2 : 0),
 							NULL,
 							16
-							)
-						),
+						)
+					),
 					save_file
 				);
 			}
@@ -2637,52 +2714,14 @@ int main(int argc, char* argv[]){
 
 	std::string rate_file = save_file + "_rate.dat";
 	if(vm.count("measure-rate")){
-		if(vm["measure-rate"].empty() || (vm["measure-rate"].as<std::vector<std::string>>()).size() < 2){
-			std::cout 
-				<< "no or less than two arguments were provided for option --measure-rate:\nno thresholds will be set" 
-				<< std::endl;
-		}
-		else{
-			std::vector<std::vector<std::string>> each_measure_rate_options;
-			std::vector<std::string> temp_vec;
-			for(auto& measure_rate_options : vm["measure-rate"].as<std::vector<std::string>>()){
-				if(measure_rate_options.find("0x")!=std::string::npos || measure_rate_options=="0"){
-					if(temp_vec.size()==2){
-						each_measure_rate_options.push_back(temp_vec);
-					}
-					temp_vec.clear();
-				}
-				temp_vec.push_back(measure_rate_options);
-			}
-			if(temp_vec.size()==2){
-				each_measure_rate_options.push_back(temp_vec);
-			}	 
-			for(auto& one_measure_rate_options : each_measure_rate_options){
-				std::cout << "Measuring rate of: "
-									<< std::stoi(
-										one_measure_rate_options.at(0).substr(one_measure_rate_options.at(0).find("0x")!=std::string::npos ? 
-											one_measure_rate_options.at(0).find("0x")+2 : 0),
-										NULL,
-										16
-									) << "\t"
-									<< " over: "
-									<< std::stod(one_measure_rate_options.at(1))
-									<< " seconds" << std::endl;
-				measure_rate(
-					one_measure_rate_options.at(0) == "0" ? 
-					0 : dirichlist.at(
-						std::stoi(
-							one_measure_rate_options.at(0).substr(one_measure_rate_options.at(0).find("0x")!=std::string::npos ? 
-								one_measure_rate_options.at(0).find("0x")+2 : 0),
-							NULL,
-							16
-						)
-					),
-					rate_file,
-					std::stod(one_measure_rate_options.at(1))
-				);
-			}
-		}
+		double rate_measure_time = vm["measure-rate"].as<double>();
+		std::cout << "Measuring rate of all diriches over " 
+				<< rate_measure_time << " seconds" << std::endl;
+		measure_rate(
+			0,
+			rate_file,
+			rate_measure_time
+		);
 	}
 
 	std::string str = save_file + "_all_canvases.pdf";

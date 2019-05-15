@@ -1107,26 +1107,17 @@ void set_thresholds_to_noise(std::shared_ptr<dirich> dirichptr, double part_of_n
 
 void set_pattern(std::shared_ptr<dirich> dirichptr, uint32_t pattern=4294967295)
 {
-	if(dirichptr==0){
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 2;
-		gcheck_thresholds_mutex.unlock();		
+	gcheck_thresholds_mutex.lock();
+	gcheck_thresholds = 2;
+	gcheck_thresholds_mutex.unlock();		
 
+	if(dirichptr==0){
 		std::vector<std::thread> threads;
 		for(auto& dirichlistitem : dirichlist){
-
-			std::array<double,NRCHANNELS> thresholdvals;
-			std::array<uint16_t,NRCHANNELS> baselines = dirichlistitem.second->GetBaselines();
-			for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-				thresholdvals.at(ichannel) = 
-				(pattern >> ichannel) % 2 == 1 ? 
-				0 : dirich::Thr_DtomV(OFFTHRESH_low-baselines.at(ichannel));
-			}
-
 			threads.push_back(
 				std::thread(
-					[&dirichlistitem, thresholdvals](){
-						dirichlistitem.second->SetThresholdsmV(thresholdvals);
+					[&dirichlistitem,&pattern](){
+						dirichlistitem.second->SetPattern(pattern);
 					}
 				)
 			);
@@ -1134,34 +1125,19 @@ void set_pattern(std::shared_ptr<dirich> dirichptr, uint32_t pattern=4294967295)
 
 		for(auto& thread : threads)
 			thread.join();
-
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 1;
-		gcheck_thresholds_mutex.unlock();		
 	}
 	else if(dirichlist.find(dirichptr->GetBoardAddress())!=dirichlist.end()){
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 2;
-		gcheck_thresholds_mutex.unlock();
-
-		std::array<double,NRCHANNELS> thresholdvals;
-		std::array<uint16_t,NRCHANNELS> baselines = dirichptr->GetBaselines();
-		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-			thresholdvals.at(ichannel) = 
-			(pattern >> ichannel) % 2 == 1 ? 
-			0 : dirich::Thr_DtomV(OFFTHRESH_low-baselines.at(ichannel));
-		}
-		dirichptr->SetThresholdsmV(thresholdvals);
-		
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 1;
-		gcheck_thresholds_mutex.unlock();
+		dirichptr->SetPattern(pattern);
 	}
 	else{
 		std::cerr << "No DiRICH 0x" << std::hex << dirichptr->GetBoardAddress() 
 			<< " found" 
 			<< std::endl;
 	}
+
+	gcheck_thresholds_mutex.lock();
+	gcheck_thresholds = 1;
+	gcheck_thresholds_mutex.unlock();		
 }
 
 void measure_rate(std::shared_ptr<dirich>	dirichptr, std::string filename, double measure_time)
@@ -2045,6 +2021,13 @@ int main(int argc, char* argv[]){
 		// 	"
 		// )
 		(
+			"invert,i", 
+			po::value<std::vector<std::string>>()->multitoken()->zero_tokens(), 
+			"Inverts all following threshold-settings. "
+			"Meaning the inversion of the following commands: "
+			"\"--scan-above-noise\",\"--load-threshold\",\"--set-to-noise\",\"--set-threshold\""
+		)
+		(
 			"scan-above-noise,a", 
 			po::value<std::vector<std::string>>()->multitoken()->zero_tokens(), 
 				"Do scan for threshold-values greater than the diriches noiseband " 
@@ -2087,23 +2070,34 @@ int main(int argc, char* argv[]){
 			"set-to-noise,n", 
 			po::value<std::vector<std::string>>()->multitoken(), 
 				"Set threshold to a certain distance in terms of noisewidth for specified diriches. "
-				"First Parameter specifies the dirich (0 equals all DiRICHes), "
-				"the second the part of the half-noisebandwidth."
+				"First parameter specifies the dirich (0 equals all DiRICHes), "
+				"the second the part of the half-noisebandwidth. "
+				"If only one parameter is given. All initialized diriches are set to the part of the half-noisebandwidth"
+				" specified as parameter."
+				"Only positive threshold values are accepted, as the minus-sign induces errors."
+				"If you want to set negative thresholds use this command with a positive threshold"
+				" and invert it using \"--invert\". However a threshold of 0 is impossible!"
 		)
 		(
 			"set-threshold,t", 
 			po::value<std::vector<std::string>>()->multitoken(), 
 				"Set threshold for specified diriches in mV after pre amplification. "
-				"First Parameter specifies the dirich (0 equals all DiRICHes), "
+				"First parameter specifies the dirich (0 equals all DiRICHes), "
 				"the second the threshold. "
+				"If only one parameter is given. The thresholds of all initialized diriches are set to the"
+				" specified as parameter."
 				"Only positive threshold values are accepted, as the minus-sign induces errors."
+				"If you want to set negative thresholds use this command with a positive threshold"
+				" and invert it using \"--invert\". However a threshold of 0 is impossible!"
 		)
 		(
 			"set-pattern,p", 
 			po::value<std::vector<std::string>>()->multitoken(), 
 				"Set pattern for specified diriches. "
-				"First Parameter specifies the dirich (0 equals all DiRICHes), the second the pattern. "
+				"First parameter specifies the dirich (0 equals all DiRICHes), the second the pattern. "
 				"The pattern is derived by interpreting the second parameter "
+				"If only one parameter is given. All initialized diriches are set to the pattern"
+				" specified as parameter."
 				"	as bitpattern and disabling each channel where the corresponding bit equals 0. "
 				"To disable one or many diriches completely you need to put the pattern 00!. "
 				"And... What you are searching for is 1431655765/2863311530"
@@ -2196,8 +2190,43 @@ int main(int argc, char* argv[]){
 	gcheck_thresholds_mutex.unlock();
 
 	if(vm.count("verbosity")){
+		std::cout << "Setting Verbosity to level " << vm["verbosity"].as<int>() << std::endl;
 		for(auto& dirich : dirichlist){
 			dirich.second->gdirich_reporting_level=vm["verbosity"].as<int>();
+		}
+	}
+
+	if(vm.count("invert")){
+		if(vm["invert"].as<std::vector<std::string>>().size() < 1 
+			|| vm["invert"].as<std::vector<std::string>>().at(0)==0) {
+			std::cout << "Inverting all diriches"<< std::endl;
+			for(auto& dirich : dirichlist){
+				auto curr_orientation = dirich.second->GetOrientation();
+				for(auto& one_curr_orientation : curr_orientation) {
+					one_curr_orientation*=-1;
+				}
+				dirich.second->SetOrientation(curr_orientation);
+			}
+		}
+		else{
+			for(auto& invert_opt : vm["invert"].as<std::vector<std::string>>()){
+				uint16_t dirichnr = std::stoi(
+					invert_opt.substr(invert_opt.find("0x")!=std::string::npos ?
+					invert_opt.find("0x")+2 : 0),NULL,16
+				);
+				std::cout << "Inverting 0x" << std::hex << dirichnr << std::dec << std::endl;
+				try{
+					auto curr_orientation = dirichlist.at(dirichnr)->GetOrientation();
+					for(auto& one_curr_orientation : curr_orientation) {
+						one_curr_orientation*=-1;
+					}
+					dirichlist.at(dirichnr)->SetOrientation(curr_orientation);
+				}
+				catch(...) {
+					std::cout << "Dirich 0x" << std::hex << dirichnr << std::dec 
+						<< "does not exist" << std::endl;
+				}
+			}
 		}
 	}
 

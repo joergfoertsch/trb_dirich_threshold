@@ -99,6 +99,7 @@ public:
 	void SetSingleThresholdmV(uint8_t ichannel, double thrinmV);
 	void SetThresholdsmV(std::array<double,NRCHANNELS> thrarrayinmV);
 	void SetThresholdsmV(double thrinmV);
+	void SetPattern(long pattern);
 	//baseline
 	void SetSingleBaseline(uint8_t ichannel, uint16_t baseline) {
 		if(ichannel<NRCHANNELS) 
@@ -129,6 +130,9 @@ public:
 	inline int SetTDCSetting(uint32_t setting);
 	inline int SetTDCSetting(std::array<uint32_t,NRCHANNELS/(CHPCHAIN*2)> setting);
 
+	void SetOrientation(std::array<int,NRCHANNELS> orientation) {
+		forientation = orientation;
+	}
 	// getter functions
 
 	uint16_t GetBoardAddress() {return gBoardAddress;} //board address
@@ -186,7 +190,10 @@ public:
 		}
 	}//noisewidth
 	std::array<uint16_t,NRCHANNELS> GetNoisewidths_old() {return fnoisewidth_old;}
+	
 	int GetTDCSetting();
+
+	std::array<int,NRCHANNELS> GetOrientation() { return forientation;}
 
 	// threshold functions
 	void DoBaselineScan	( );
@@ -741,12 +748,35 @@ void dirich::SetThresholdsmV(std::array<double,NRCHANNELS> thrarrayinmV)
 	}
 }
 
-
 void dirich::SetThresholdsmV(double thrinmV=30.)
 {
 	std::array<double,NRCHANNELS> thrarray;
 	thrarray.fill(thrinmV);
 	SetThresholdsmV(thrarray);
+}
+
+void dirich::SetPattern(long pattern)
+{
+	std::array<uint16_t,NRCHANNELS> thresholdvals;
+	for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
+		thresholdvals.at(ichannel) = 
+		(pattern >> ichannel) % 2 == 1 ? 
+		0 : OFFTHRESH_low;
+	}
+	int ret=0;
+	ret=WriteThresholds(thresholdvals, true, 100);
+	if(ret<0){
+		std::cerr 
+			<< "dirich 0x" << std::hex << gBoardAddress 
+			<< "'s setting Thresholds failed" 
+			<< std::endl;
+		return;
+	}
+	for(uint i=0;i<thresholdvals.size();++i){
+		if(thresholdvals.at(i)!=0){
+			fthresholdmV.at(i) = 0;
+		}
+	}
 }
 
 int dirich::SetTDCSetting(){

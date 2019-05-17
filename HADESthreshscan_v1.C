@@ -2198,7 +2198,7 @@ int main(int argc, char* argv[]){
 
 	if(vm.count("invert")){
 		if(vm["invert"].as<std::vector<std::string>>().size() < 1 
-			|| vm["invert"].as<std::vector<std::string>>().at(0)==0) {
+			|| vm["invert"].as<std::vector<std::string>>().at(0)=="0") {
 			std::cout << "Inverting all diriches"<< std::endl;
 			for(auto& dirich : dirichlist){
 				auto curr_orientation = dirich.second->GetOrientation();

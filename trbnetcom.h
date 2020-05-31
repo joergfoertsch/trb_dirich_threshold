@@ -9,6 +9,9 @@ std::mutex TRBAccessMutex;
 
 inline int Ttrb_read_uid(uint16_t _BoardAddress, uint32_t* _buffer, size_t _buffer_size){
 	int ret=-1;
+	if(_buffer_size==0) {
+		return ret;
+	}
 	for(int tries=0;
 			tries<NOFCOMTRIES;
 			++tries
@@ -25,6 +28,9 @@ inline int Ttrb_read_uid(uint16_t _BoardAddress, uint32_t* _buffer, size_t _buff
 
 inline int Ttrb_register_write_mem(uint16_t _BoardAddress, uint16_t _RegisterAddress, uint8_t _option, uint32_t* _buffer, uint32_t _buffer_size){
 	int ret=-1;
+	if(_buffer_size==0) {
+		return ret;
+	}
 	for(int tries=0;
 			tries<NOFCOMTRIES;
 			++tries
@@ -41,6 +47,9 @@ inline int Ttrb_register_write_mem(uint16_t _BoardAddress, uint16_t _RegisterAdd
 
 inline int Ttrb_register_read_mem(uint16_t _BoardAddress, uint16_t _RegisterAddress, uint8_t _option, uint16_t _size, uint32_t* _buffer, uint32_t _buffer_size){
 	int ret=-1;
+	if(_buffer_size==0) {
+		return ret;
+	}
 	for(int tries=0;
 			tries<NOFCOMTRIES;
 			++tries
@@ -57,6 +66,9 @@ inline int Ttrb_register_read_mem(uint16_t _BoardAddress, uint16_t _RegisterAddr
 	
 inline int Ttrb_register_read(uint16_t _BoardAddress, uint16_t _RegisterAddress, uint32_t* _buffer, size_t _buffer_size){
 	int ret=-1;
+	if(_buffer_size==0) {
+		return ret;
+	}
 	for(int tries=0;
 			tries<NOFCOMTRIES;
 			++tries

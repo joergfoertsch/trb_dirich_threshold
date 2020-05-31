@@ -613,6 +613,8 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 		}
 		int failed=0;
 		for(int ichain=0;ichain<NRCHANNELS/CHPCHAIN;++ichain){
+			if(counter.at(ichain) = 0x0)
+				continue;
 			cmd.at(ichain).at(CHPCHAIN)= 1 << ichain;
 			cmd.at(ichain).at(CHPCHAIN+1)=0x00000 | counter.at(ichain) | ((int)check) << 16; 
 			ret=Ttrb_register_write_mem(gBoardAddress,0xd400,0,cmd.at(ichain).data(),CHPCHAIN+2);

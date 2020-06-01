@@ -288,7 +288,7 @@ dirich::dirich(uint16_t BoardAddress)
 
 	int ret=0;
 	for(int tries=0;tries<100;++tries){
-		ret=Ttrb_read_uid(BoardAddress, buffer4mb, BUFFER_SIZE4mb);
+		ret=Ttrb::read_uid(BoardAddress, buffer4mb, BUFFER_SIZE4mb);
 		if(ret!=4) continue;
 		if(buffer4mb[0]==0 || buffer4mb[1]==0 || buffer4mb[3] ==0) continue;
 		else break;
@@ -323,9 +323,9 @@ dirich::dirich(uint16_t BoardAddress)
 	ret=0;
 	for(int failed=0;failed<100;++failed){
 		// std::cout << gBoardAddress << " " << failed << std::endl;
-		ret=Ttrb_register_write_mem(gBoardAddress,0xd400,0,c,CHPCHAIN+2);
+		ret=Ttrb::register_write_mem(gBoardAddress,0xd400,0,c,CHPCHAIN+2);
 		std::this_thread::sleep_for(std::chrono::microseconds(SPICOMDELAY));
-		ret=Ttrb_register_read(gBoardAddress,0xd412,ret_c.data(),2);
+		ret=Ttrb::register_read(gBoardAddress,0xd412,ret_c.data(),2);
 		if(ret<0) return;
 		if(ret==2 && (ret_c.at(1) & 0xff00) == 0x100) break;
 		//check if correct version (for dirich 0x100) is on the side FPGA
@@ -449,7 +449,7 @@ int dirich::ReadSingleThreshold(uint8_t ichannel, uint16_t& thrvalue)
 		}
 		if(gdirichver<=1){
 			uint32_t buffer[2];
-			ret=Ttrb_register_read(gBoardAddress,reg, buffer, 2);
+			ret=Ttrb::register_read(gBoardAddress,reg, buffer, 2);
 
 			if((gBoardAddress != buffer[0]) || (ret != 2)) return -1;
 
@@ -460,10 +460,10 @@ int dirich::ReadSingleThreshold(uint8_t ichannel, uint16_t& thrvalue)
 			uint32_t cmd = 0x0 << 20 | real_ichannel << 24 | thrvalue << 0;
 			//evtl. sind auch mehrere Kanäle auf einmal lesbar.
 			uint32_t c[] = {cmd,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,(uint32_t)ichannel/CHPCHAIN+1,0x10001}; 
-			ret=Ttrb_register_write_mem(gBoardAddress,0xd400,0,c,CHPCHAIN+2);
+			ret=Ttrb::register_write_mem(gBoardAddress,0xd400,0,c,CHPCHAIN+2);
 			std::this_thread::sleep_for(std::chrono::microseconds(SPICOMDELAY));
 			uint32_t ret_c[2];
-			ret=Ttrb_register_read(gBoardAddress,0xd412,ret_c,2);
+			ret=Ttrb::register_read(gBoardAddress,0xd412,ret_c,2);
 			if((gBoardAddress != ret_c[0]) || (ret != 2)) return -1;
 			thrvalue=(ret_c[1] & 0xffff);
 			if(gdirich_reporting_level>3)
@@ -536,7 +536,7 @@ int dirich::WriteSingleThreshold(uint8_t ichannel, uint16_t thrvalue, bool check
 	if(gdirichver==1){
 //	 int reg=0xa000+31-ichannel; old firwmare
 		int reg=0xa000+ichannel; //new firwmare 
-		ret=Ttrb_register_write(gBoardAddress, reg, (uint32_t)thrvalue);
+		ret=Ttrb::register_write(gBoardAddress, reg, (uint32_t)thrvalue);
 		return ret;
 	}
 	else{
@@ -547,12 +547,12 @@ int dirich::WriteSingleThreshold(uint8_t ichannel, uint16_t thrvalue, bool check
 			(uint32_t)( 1 << ((int)ichannel/CHPCHAIN)),
 			0x00001 | ((unsigned int)check) << 16
 		}};
-		ret=Ttrb_register_write_mem(gBoardAddress,0xd400,0,c.data(),CHPCHAIN+2);
+		ret=Ttrb::register_write_mem(gBoardAddress,0xd400,0,c.data(),CHPCHAIN+2);
 		if(ret==-1) return ret;
 		std::this_thread::sleep_for(std::chrono::microseconds(THRESHDELAY));		
 		if(check){
 			uint32_t temp[18];
-			ret=Ttrb_register_read(gBoardAddress,0xd412, temp,18);
+			ret=Ttrb::register_read(gBoardAddress,0xd412, temp,18);
 			if(ret==-1) return ret;
 		}
 		int failed=0;
@@ -573,12 +573,12 @@ int dirich::WriteSingleThreshold(uint8_t ichannel, uint16_t thrvalue, bool check
 					<< " set " << set_threshold 
 				<< std::endl;
 			}
-			ret=Ttrb_register_write_mem(gBoardAddress,0xd400,0,c.data(),CHPCHAIN+2);
+			ret=Ttrb::register_write_mem(gBoardAddress,0xd400,0,c.data(),CHPCHAIN+2);
 			if(ret==-1) break;
 			std::this_thread::sleep_for(std::chrono::microseconds(THRESHDELAY));
 			if(check){
 				uint32_t temp[18];
-				ret=Ttrb_register_read(gBoardAddress,0xd412, temp,18);
+				ret=Ttrb::register_read(gBoardAddress,0xd412, temp,18);
 				if(ret==-1) break;
 			}
 		}
@@ -597,7 +597,7 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 		for (int i=0;i<NRCHANNELS;i++) {
 			buffer[i]=thrarray[NRCHANNELS-i-1];
 		}
-		ret=Ttrb_register_write_mem(gBoardAddress,reg,0,buffer,NRCHANNELS);
+		ret=Ttrb::register_write_mem(gBoardAddress,reg,0,buffer,NRCHANNELS);
 		return ret;
 	}
 	else{
@@ -617,12 +617,12 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 				continue;
 			cmd.at(ichain).at(CHPCHAIN)= 1 << ichain;
 			cmd.at(ichain).at(CHPCHAIN+1)=0x00000 | counter.at(ichain) | ((int)check) << 16; 
-			ret=Ttrb_register_write_mem(gBoardAddress,0xd400,0,cmd.at(ichain).data(),CHPCHAIN+2);
+			ret=Ttrb::register_write_mem(gBoardAddress,0xd400,0,cmd.at(ichain).data(),CHPCHAIN+2);
 			if(ret==-1) break;
 			std::this_thread::sleep_for(std::chrono::microseconds(THRESHDELAY));		
 			if(check){
 				uint32_t temp[18];
-				ret=Ttrb_register_read(gBoardAddress,0xd412, temp,18);
+				ret=Ttrb::register_read(gBoardAddress,0xd412, temp,18);
 				if(ret==-1) break;
 			}
 			for(;failed<nof_checks;++failed){
@@ -657,12 +657,12 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 				if(gdirich_reporting_level>2) 
 					std::cout << std::endl;
 				if(equal_it==CHPCHAIN) break;
-				ret=Ttrb_register_write_mem(gBoardAddress,0xd400,0,cmd.at(ichain).data(),CHPCHAIN+2);
+				ret=Ttrb::register_write_mem(gBoardAddress,0xd400,0,cmd.at(ichain).data(),CHPCHAIN+2);
 				if(ret==-1) break;
 				std::this_thread::sleep_for(std::chrono::microseconds(THRESHDELAY));
 				if(check){
 					uint32_t temp[18];
-					ret=Ttrb_register_read(gBoardAddress,0xd412, temp,18);
+					ret=Ttrb::register_read(gBoardAddress,0xd412, temp,18);
 					if(ret==-1) break;
 				}
 			}
@@ -798,7 +798,7 @@ int dirich::SetTDCSetting(uint32_t setting){
 int dirich::SetTDCSetting(std::array<uint32_t,NRCHANNELS/(2*CHPCHAIN)> setting){
 	int ret = 0;
 	for(int i=0;i<NRCHANNELS/(2*CHPCHAIN);++i){
-		ret=Ttrb_register_write(gBoardAddress, 0xc802+i, setting.at(i)); //switch off TDC
+		ret=Ttrb::register_write(gBoardAddress, 0xc802+i, setting.at(i)); //switch off TDC
 		if(ret==-1){
 			std::cerr 
 				<< "Setting TDCs status failed for dirich " 
@@ -822,14 +822,14 @@ int dirich::ReadSingleScaler(
 	uint16_t reg=0xc000+ichannel;
 	// else reg=0xc000+ichannel;
 	uint32_t buffer[2];
-	for(int tries=0;tries<NOFCOMTRIES;++tries){
+	for(int tries=0;tries<Ttrb::NOFCOMTRIES;++tries){
 		GetRateMutex.lock();
-		ret=Ttrb_register_read(gBoardAddress,reg, buffer, 2);
+		ret=Ttrb::register_read(gBoardAddress,reg, buffer, 2);
 		access_time = std::chrono::system_clock::now();
 		GetRateMutex.unlock();
 		if( ret==2 && gBoardAddress == buffer[0] ) 
 			break;
-		std::this_thread::sleep_for(std::chrono::milliseconds(FAILDELAY));
+		std::this_thread::sleep_for(std::chrono::milliseconds(Ttrb::faildelay(Ttrb::gen)));
 	}
 	if( ret==2 && gBoardAddress == buffer[0] ){
 		scalervalue=buffer[1] & 0x7fffffff;
@@ -846,16 +846,16 @@ int dirich::ReadScalers(uint32_t* scalervalues, std::chrono::system_clock::time_
 	uint16_t reg=0xc000+1;
 	uint32_t buffer[NRCHANNELS+1];
 	// for (int i=0;i<NRCHANNELS+1; i++) buffer[i]=0;
-	for(int tries=0;tries<NOFCOMTRIES;++tries){
+	for(int tries=0;tries<Ttrb::NOFCOMTRIES;++tries){
 		// std::cout << "Getting Scalers try " << tries << std::endl;
 		GetRateMutex.lock();
-		ret=Ttrb_register_read_mem(gBoardAddress,reg,0,NRCHANNELS,buffer,NRCHANNELS+1);
+		ret=Ttrb::register_read_mem(gBoardAddress,reg,0,NRCHANNELS,buffer,NRCHANNELS+1);
 		// for(int i=0;i<ret;++i) std::cout << buffer[i] <<std::endl;
 		access_time = std::chrono::system_clock::now();
 		GetRateMutex.unlock();
 		if( ret==NRCHANNELS+1 && gBoardAddress == (buffer[0] & 0xffff) ) 
 			break;
-		std::this_thread::sleep_for(std::chrono::milliseconds(FAILDELAY));
+		std::this_thread::sleep_for(std::chrono::milliseconds(Ttrb::faildelay(Ttrb::gen)));
 	}	
 	if( (ret == NRCHANNELS+1) && gBoardAddress == (buffer[0] & 0xffff) ){
 		if(gdirich_reporting_level>=5){
@@ -971,7 +971,7 @@ int dirich::GetTDCSetting(){
 	int ret = 0;
 	for(int i=0;i<NRCHANNELS/(2*CHPCHAIN);++i){
 		uint32_t temp_tdc_setting[2];
-		ret=Ttrb_register_read(gBoardAddress, 0xc802+i, temp_tdc_setting, 2); //switch off TDC
+		ret=Ttrb::register_read(gBoardAddress, 0xc802+i, temp_tdc_setting, 2); //switch off TDC
 		// std::cout << std::hex << temp_tdc_setting[0] << "\t" << temp_tdc_setting[1] << std::endl;
 		if(ret!=2 || temp_tdc_setting[0]!=gBoardAddress){
 			std::cerr 

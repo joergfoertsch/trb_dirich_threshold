@@ -1737,7 +1737,7 @@ void* check_thresholds(){
 					(uint32_t)ichannel/CHPCHAIN+1,
 					0x10001
 				}; 
-				ret=Ttrb_register_write_mem(BROADCAST,0xd400,0,c,CHPCHAIN+2);
+				ret=Ttrb::register_write_mem(BROADCAST,0xd400,0,c,CHPCHAIN+2);
 				if(ret<0){
 					std::cerr << "Can't retreive Thresholds (1)!!!" << std::endl;
 					break_counter++;
@@ -1745,7 +1745,7 @@ void* check_thresholds(){
 					else break;
 				}
 				std::this_thread::sleep_for(std::chrono::microseconds(SPICOMDELAY));
-				ret=Ttrb_register_read(BROADCAST,0xd412,temp_buffer4mb,BUFFER_SIZE4mb);
+				ret=Ttrb::register_read(BROADCAST,0xd412,temp_buffer4mb,BUFFER_SIZE4mb);
 				if(ret<0){
 					std::cerr << "Can't retreive Thresholds (2)!!!" << std::endl;
 					break_counter++;
@@ -1792,12 +1792,13 @@ void initialize_diriches(std::vector<uint16_t> diriches = {})
 	int dirich_counter=0;
 
 	if(diriches.empty()){
-		ret=Ttrb_read_uid(BROADCAST, buffer4mb, BUFFER_SIZE4mb);
+		ret=Ttrb::read_uid(BROADCAST, buffer4mb, BUFFER_SIZE4mb);
 		if(ret<4){
 			std::cerr << "No TRB3 Modules found!!!" << std::endl;
 			return;
 		}
 		for(int i=0;i<ret;i+=4){
+			if()
 			// if(buffer[i+3]>0x1200 && buffer[i+3]<0x1200)
 			inited_diriches.insert(
 				std::make_pair(

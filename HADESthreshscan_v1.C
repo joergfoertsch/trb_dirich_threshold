@@ -1798,7 +1798,6 @@ void initialize_diriches(std::vector<uint16_t> diriches = {})
 			return;
 		}
 		for(int i=0;i<ret;i+=4){
-			if()
 			// if(buffer[i+3]>0x1200 && buffer[i+3]<0x1200)
 			inited_diriches.insert(
 				std::make_pair(

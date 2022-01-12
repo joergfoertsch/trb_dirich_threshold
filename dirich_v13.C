@@ -1216,8 +1216,8 @@ void dirich::DoThreshScanOverBase(
 			 	<< "'s setting Thresholds failed" 
 			 	<< std::endl;
 			 return;
-			}			
-			for(int measures=0;measures<gMeasures;++measures){
+			}
+			if(gMeasures)for(int measures=0;measures<gMeasures;++measures){
 				double* rates = GetRates(gMeasureTime_over_temp);
 				for (int ichannel=0; ichannel<LastChannel; ichannel++){
 					if(threshold_value.at(ichannel)==0) continue;
@@ -1234,7 +1234,23 @@ void dirich::DoThreshScanOverBase(
 					}
 				}
 			}
-
+			else{
+				double* rates = GetRates(MeasureTime);
+				for (int ichannel=0; ichannel<LastChannel; ichannel++){
+					if(threshold_value.at(ichannel)==0) continue;
+					gRateGraphsOverBase.at(ichannel)->SetPoint(
+						gRateGraphsOverBase.at(ichannel)->GetN(),
+						1.*Thr_DtomV(threshold_value.at(ichannel)-fbaseline.at(ichannel)),
+						1.*rates[ichannel]
+					);
+					if(gdirich_reporting_level>2){
+						std::cout 
+							<< 1.*threshold_value.at(ichannel) 
+							<< " " << 1.*rates[ichannel] 
+							<< std::endl;
+					}
+				}
+			}
 			int finish_counter=0;
 			for (int ichannel=FirstChannel+ipass; ichannel<LastChannel; ichannel+=NrPasses){
 				int number_of_points = gRateGraphsOverBase.at(ichannel)->GetN();

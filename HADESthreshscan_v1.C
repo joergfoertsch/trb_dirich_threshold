@@ -1213,10 +1213,10 @@ void measure_trigger_rate(std::shared_ptr<dirich> dirichptr, std::string filenam
 				)
 			));
 		}
+		file 
+			<< "# Trigger Scalar Rate\n# dirich\trate\terror"
+			<< std::endl;
 		for(auto& one_rate : rate){
-			file 
-				<< "# Trigger Scalar Rate\n# dirich\trate\terror"
-				<< std::endl;
 			one_rate.second.wait();
 			double temp_rate = one_rate.second.get();
 			file

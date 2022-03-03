@@ -1197,6 +1197,57 @@ void measure_rate(std::shared_ptr<dirich>	dirichptr, std::string filename, doubl
 	}
 }
 
+void measure_trigger_rate(std::shared_ptr<dirich> dirichptr, std::string filename, double measure_time)
+{
+	if(dirichptr==NULL){
+		std::ofstream file;
+		file.open(filename, std::ios_base::app);
+		if(!file) std::cerr << "File for saving (" << filename << ") could not be opened!" << std::endl;
+		
+		std::unordered_map<uint16_t,std::future<double>> rate;
+		for(auto& dirich : dirichlist){
+			rate.insert(std::pair<uint16_t,std::future<double>>(
+				dirich.first, 
+				std::async(std::launch::async,
+					&dirich::GetSingleRate, dirich.second.get(), measure_time, 0
+				)
+			));
+		}
+		for(auto& one_rate : rate){
+			file 
+				<< "# Trigger Scalar Rate\n# dirich\trate\terror"
+				<< std::endl;
+			one_rate.second.wait();
+			double temp_rate = one_rate.second.get();
+			file
+				<< std::hex << one_rate.first << std::dec << "\t" 
+				<< temp_rate << "\t" 
+				<< sqrt(temp_rate)/sqrt(measure_time) << "\t" 
+				<< std::endl;
+		}
+		if(file)
+			file.close();
+	}
+	else{
+		std::ofstream file;
+		file.open(filename, std::ios_base::app);
+		if(!file) std::cerr << "File for saving (" << filename << ") could not be opened!" << std::endl;
+		
+		double rate = dirichptr->GetSingleRate(measure_time, 0);
+
+		file 
+			<< "# Trigger Scalar Rate\n# dirich\trate\terror"
+			<< std::endl;
+		file
+			<< std::hex << dirichptr->GetBoardAddress() << std::dec << "\t" 
+			<< rate << "\t" 
+			<< sqrt(rate)/sqrt(measure_time) << "\t" 
+			<< std::endl;
+		if(file)
+			file.close();			
+	}
+}
+
 void save_base(std::shared_ptr<dirich>	dirichptr, std::string filename, bool append)
 {
 	std::ofstream file;
@@ -2007,6 +2058,14 @@ int main(int argc, char* argv[]){
 				"Parameter is the measure time in seconds. If non is given, the standard value is 10s. "
 				"Results are saved in an \"_rate.dat\"-file with corresponding date/time."
 		)
+		(
+			"measure-trigger-rate",
+			po::value<double>()->implicit_value(1.),
+				"measure the trigger rate (i.e. ch 0) for all initialized diriches. "
+				"Parameter is the measure time in seconds. If non is given, the standard value is 1s. "
+				"Results are saved in an \"_triggerrate.dat\"-file with corresponding date/time."
+		)
+
 		// (
 		// 	"find-threshold,i", 
 		// 	po::value<double>(),
@@ -2749,6 +2808,18 @@ int main(int argc, char* argv[]){
 		measure_rate(
 			0,
 			rate_file,
+			rate_measure_time
+		);
+	}
+
+	std::string triggerrate_file = save_file + "_triggerrate.dat";
+	if(vm.count("measure-trigger-rate")){
+		double rate_measure_time = vm["measure-trigger-rate"].as<double>();
+		std::cout << "Measuring trigger rate (i.e. ch0) of all diriches over " 
+				<< rate_measure_time << " seconds" << std::endl;
+		measure_trigger_rate(
+			0,
+			triggerrate_file,
 			rate_measure_time
 		);
 	}

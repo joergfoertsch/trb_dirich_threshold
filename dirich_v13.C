@@ -697,7 +697,7 @@ void dirich::SetSingleThresholdmV(uint8_t ichannel ,double thrinmV=30.)
 			<< std::endl;
 		return;
 	} 
-	int newthreshold = thrinmV==0 ? 0 : baseline+forientation.at(ichannel)+Thr_mVtoD(thrinmV);
+	int newthreshold = thrinmV==0 ? 0 : baseline+forientation.at(ichannel)*Thr_mVtoD(thrinmV);
 
 	int ret=WriteSingleThreshold(ichannel, newthreshold, true, 100);
 	if(ret<0){

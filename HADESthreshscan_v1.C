@@ -2258,7 +2258,7 @@ int main(int argc, char* argv[]){
 	if(vm.count("invert")){
 		if(vm["invert"].as<std::vector<std::string>>().size() < 1 
 			|| vm["invert"].as<std::vector<std::string>>().at(0)=="0") {
-			std::cout << "Inverting all diriches"<< std::endl;
+			std::cout << "Threshold settings of all diriches will be inverted"<< std::endl;
 			for(auto& dirich : dirichlist){
 				auto curr_orientation = dirich.second->GetOrientation();
 				for(auto& one_curr_orientation : curr_orientation) {
@@ -2273,7 +2273,7 @@ int main(int argc, char* argv[]){
 					invert_opt.substr(invert_opt.find("0x")!=std::string::npos ?
 					invert_opt.find("0x")+2 : 0),NULL,16
 				);
-				std::cout << "Inverting 0x" << std::hex << dirichnr << std::dec << std::endl;
+				std::cout << "Threshold settings of 0x" << std::hex << dirichnr << std::dec << "will be inverted" << std::endl;
 				try{
 					auto curr_orientation = dirichlist.at(dirichnr)->GetOrientation();
 					for(auto& one_curr_orientation : curr_orientation) {

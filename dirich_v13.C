@@ -424,7 +424,7 @@ int dirich::ReadSingleThreshold(uint8_t ichannel, uint16_t& thrvalue)
 {
 	if (ichannel>NRCHANNELS-1)
 		return -1;
-	int ret;
+	int ret=-1;
 	int reg=0;
 	uint8_t real_ichannel=0;
 	if(gdirichver==0){
@@ -514,7 +514,7 @@ int dirich::WriteSingleThreshold(uint8_t ichannel, uint16_t thrvalue, bool check
 
 int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check)
 {
-	int ret;
+	int ret=-1;
 	std::array<std::array<uint32_t,CHPCHAIN+2>,NRCHANNELS/CHPCHAIN> cmd;
 	if(gdirichver==1){
 		uint16_t reg=0xa000+32-NRCHANNELS;
@@ -535,7 +535,6 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 				counter.at(ichannel/CHPCHAIN)++;
 			}
 		}
-		int failed=0;
 		for(int ichain=0;ichain<NRCHANNELS/CHPCHAIN;++ichain){
 			if(counter.at(ichain) == 0x0)
 				continue;
@@ -555,7 +554,7 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 
 int dirich::WriteThresholds(uint16_t thrvalue, bool check)
 {
-	int ret;
+	int ret=-1;
 	std::array<uint16_t,NRCHANNELS> thrarray;
 	thrarray.fill(thrvalue);
 	ret=WriteThresholds(thrarray, check);
@@ -723,7 +722,7 @@ int dirich::ReadSingleScaler(
 int dirich::ReadScalers(uint32_t* scalervalues, std::chrono::system_clock::time_point& access_time)
 {
 	// std::cout << "Getting Scalers" << std::endl;
-	int ret;
+	int ret=-1;
 	uint16_t reg=0xc000+1;
 	uint32_t buffer[NRCHANNELS+1];
 	// for (int i=0;i<NRCHANNELS+1; i++) buffer[i]=0;
@@ -923,7 +922,7 @@ void dirich::DoThreshScan(
 			<< " " << clear_graph 
 			<< std::endl;
 	}
-	int ret;
+	int ret=-1;
 
 	if(clear_graph==1){
 		for (int ichannel=0; ichannel<NRCHANNELS; ichannel++){
@@ -1050,7 +1049,7 @@ void dirich::DoThreshScanOverBase(
 	} 
 	double gMeasureTime_over_temp=3.;
 	int gMeasures = MeasureTime/gMeasureTime_over_temp;
-	int ret;
+	int ret=-1;
 	
 	GetTDCSetting(); //Get TDC values
 	SetTDCSetting(0x0); //SwitchTDC off

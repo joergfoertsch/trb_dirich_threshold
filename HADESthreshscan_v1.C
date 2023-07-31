@@ -43,8 +43,6 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-int gcheck_thresholds = 1;
-std::mutex gcheck_thresholds_mutex;
 // #define 0 0
 // #define LASTCHANNEL 31
 
@@ -1008,10 +1006,6 @@ void set_thresholds(std::shared_ptr<dirich> dirichptr, double thrinmV=30.)
 		thrinmV = -1*thrinmV;
 	}	
 	if(dirichptr==0){
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 2;
-		gcheck_thresholds_mutex.unlock();		
-
 		std::vector<std::thread> threads;
 		for(auto& dirichlistitem : dirichlist)
 			threads.push_back(
@@ -1021,24 +1015,11 @@ void set_thresholds(std::shared_ptr<dirich> dirichptr, double thrinmV=30.)
 					}
 				)
 			);
-
 		for(auto& thread : threads)
 			thread.join();
-
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 1;
-		gcheck_thresholds_mutex.unlock();
 	}
 	else if(dirichlist.find(dirichptr->GetBoardAddress())!=dirichlist.end()){
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 2;
-		gcheck_thresholds_mutex.unlock();		
-
-		dirichptr->SetThresholdsmV(thrinmV);
-
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 1;
-		gcheck_thresholds_mutex.unlock();		
+		dirichptr->SetThresholdsmV(thrinmV);	
 	}
 	else{
 		std::cerr 
@@ -1051,10 +1032,6 @@ void set_thresholds(std::shared_ptr<dirich> dirichptr, double thrinmV=30.)
 void set_thresholds_to_noise(std::shared_ptr<dirich> dirichptr, double part_of_noisewidth=1.5)
 {
 	if(dirichptr==nullptr){
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 2;
-		gcheck_thresholds_mutex.unlock();		
-
 		std::vector<std::thread> threads;
 		for(auto& dirichlistitem : dirichlist){
 			std::array<double,NRCHANNELS> thresholdvals;
@@ -1075,16 +1052,8 @@ void set_thresholds_to_noise(std::shared_ptr<dirich> dirichptr, double part_of_n
 
 		for(auto& thread : threads)
 			thread.join();
-		
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 1;
-		gcheck_thresholds_mutex.unlock();		
 	}
 	else if(dirichlist.find(dirichptr->GetBoardAddress())!=dirichlist.end()){
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 2;
-		gcheck_thresholds_mutex.unlock();
-
 		std::array<double,NRCHANNELS> thresholdvalues;
 		std::array<uint16_t,NRCHANNELS> noisevalues = dirichptr->GetNoisewidths();
 		for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
@@ -1093,9 +1062,6 @@ void set_thresholds_to_noise(std::shared_ptr<dirich> dirichptr, double part_of_n
 		}
 
 		dirichptr->SetThresholdsmV(thresholdvalues);
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 1;
-		gcheck_thresholds_mutex.unlock();		
 	}
 	else{
 		std::cerr 
@@ -1107,10 +1073,6 @@ void set_thresholds_to_noise(std::shared_ptr<dirich> dirichptr, double part_of_n
 
 void set_pattern(std::shared_ptr<dirich> dirichptr, uint32_t pattern=4294967295)
 {
-	gcheck_thresholds_mutex.lock();
-	gcheck_thresholds = 2;
-	gcheck_thresholds_mutex.unlock();		
-
 	if(dirichptr==0){
 		std::vector<std::thread> threads;
 		for(auto& dirichlistitem : dirichlist){
@@ -1134,10 +1096,6 @@ void set_pattern(std::shared_ptr<dirich> dirichptr, uint32_t pattern=4294967295)
 			<< " found" 
 			<< std::endl;
 	}
-
-	gcheck_thresholds_mutex.lock();
-	gcheck_thresholds = 1;
-	gcheck_thresholds_mutex.unlock();		
 }
 
 void measure_rate(std::shared_ptr<dirich>	dirichptr, std::string filename, double measure_time)
@@ -1426,10 +1384,6 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 		}
 		std::vector<std::thread> threads;
 		if(set_thr!=0){
-			gcheck_thresholds_mutex.lock();
-			gcheck_thresholds = 2;
-			gcheck_thresholds_mutex.unlock();
-
 			for(auto& one_threshold : thresholds)
 				threads.push_back(std::thread(
 					[&one_threshold](){
@@ -1440,10 +1394,6 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 				));
 			for(auto& one_thread : threads)
 				one_thread.join();
-
-			gcheck_thresholds_mutex.lock();
-			gcheck_thresholds = 1;
-			gcheck_thresholds_mutex.unlock();
 		}
 		for (auto& dirichlistitem: dirichlist){
 			for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
@@ -1502,10 +1452,6 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 		}
 		std::vector<std::thread> threads;
 		if(set_thr!=0){
-			gcheck_thresholds_mutex.lock();
-			gcheck_thresholds = 2;
-			gcheck_thresholds_mutex.unlock();
-
 			for(auto& one_threshold : thresholds)
 				threads.push_back(std::thread(
 					[&one_threshold](){
@@ -1516,10 +1462,6 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 				));
 			for(auto& one_thread : threads)
 				one_thread.join();
-		
-			gcheck_thresholds_mutex.lock();
-			gcheck_thresholds = 1;
-			gcheck_thresholds_mutex.unlock();
 		}
 	}
 	else{
@@ -1693,16 +1635,6 @@ void* scanthread_over(void* dirichptr) //Argument is pointer to DiRICH class ins
 
 void system_thr_scan(int type=0)
 {
-	if(type==0){
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 1;
-		gcheck_thresholds_mutex.unlock();
-	}
-	else{
-		gcheck_thresholds_mutex.lock();
-		gcheck_thresholds = 2;
-		gcheck_thresholds_mutex.unlock();		
-	}
 	std::vector <std::thread*> threadlist;
 	// Initialize instances of dirich class for each module
 	for (auto& dirichlistitem: dirichlist){
@@ -1739,9 +1671,6 @@ void system_thr_scan(int type=0)
 			thread->join();
 			delete thread;
 	}
-	gcheck_thresholds_mutex.lock();
-	gcheck_thresholds = 1;
-	gcheck_thresholds_mutex.unlock();
 	// threadlist.clear();
 	// printf("System scan done ! \n");
 	// switch(type){
@@ -1754,75 +1683,6 @@ void system_thr_scan(int type=0)
 	// 	break;
 	// }
 
-}
-
-void* check_thresholds(){
-	// return 0;
-	if(self_check_threshold==true) return 0;
-	int ret = 0;
-	int break_counter=0;
-	std::map<uint16_t,std::array<uint16_t,NRCHANNELS>> thresholds;
-	std::array<uint16_t,NRCHANNELS> temp_array;
-	temp_array.fill(0);
-	for(auto& dirichlistitem : dirichlist){
-		thresholds.insert(std::make_pair(dirichlistitem.first,temp_array));
-	}
-	uint32_t temp_buffer4mb[BUFFER_SIZE4mb];
-	while(true){
-		gcheck_thresholds_mutex.lock();
-		int temp_gcheck_thresholds = gcheck_thresholds;
-		gcheck_thresholds_mutex.unlock();
-		switch(temp_gcheck_thresholds){
-			case 0:
-			default:
-			return 0;
-			case 1:
-			std::this_thread::sleep_for(std::chrono::microseconds(10*THRESHDELAY));
-			break;
-			case 2:
-			for(int ichannel=0;ichannel<NRCHANNELS;++ichannel){
-				uint32_t real_ichannel = ichannel%CHPCHAIN;
-				uint32_t c[] = {
-					(0x0 << 20 | real_ichannel << 24),
-					0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-					(uint32_t)ichannel/CHPCHAIN+1,
-					0x10001
-				}; 
-				ret=Ttrb::register_write_mem(BROADCAST,0xd400,0,c,CHPCHAIN+2);
-				if(ret<0){
-					std::cerr << "Can't retreive Thresholds (1)!!!" << std::endl;
-					break_counter++;
-					if(break_counter>100) return 0;
-					else break;
-				}
-				std::this_thread::sleep_for(std::chrono::microseconds(SPICOMDELAY));
-				ret=Ttrb::register_read(BROADCAST,0xd412,temp_buffer4mb,BUFFER_SIZE4mb);
-				if(ret<0){
-					std::cerr << "Can't retreive Thresholds (2)!!!" << std::endl;
-					break_counter++;
-					if(break_counter>100) return 0;
-					else break;
-				}
-				for(int i=0;i<ret;i+=2){
-					try{
-						thresholds.at(temp_buffer4mb[i]).at(ichannel) = uint16_t(temp_buffer4mb[i+1] & 0xffff); }
-					catch(...){}
-				}
-			}
-			auto curr_time = std::chrono::steady_clock::now();
-			for(auto& threshold : thresholds){
-				auto& dirich = dirichlist.at(threshold.first);
-
-				dirich->Current_Thr_Mutex.lock();
-				dirich->gCurrent_Threshold = threshold.second;
-				dirich->gCurrent_Threshold_time = curr_time;
-				dirich->Current_Thr_Mutex.unlock();
-			}
-			std::this_thread::sleep_for(std::chrono::microseconds(SPICOMDELAY));
-			break;
-		}
-	}
-	return 0;
 }
 
 void initialize_diriches(std::vector<uint16_t> diriches = {})
@@ -2243,10 +2103,6 @@ int main(int argc, char* argv[]){
 	}
 
 	std::cout << "All set and done" << std::endl;
-	std::thread* threshold_checker= new std::thread(check_thresholds);
-	gcheck_thresholds_mutex.lock();
-	gcheck_thresholds = 1;
-	gcheck_thresholds_mutex.unlock();
 
 	if(vm.count("verbosity")){
 		std::cout << "Setting Verbosity to level " << vm["verbosity"].as<int>() << std::endl;
@@ -2832,12 +2688,6 @@ int main(int argc, char* argv[]){
 		else canvases->Print(str.c_str());
 		counter++;
 	}
-
-	usleep(100000);
-	gcheck_thresholds_mutex.lock();
-	gcheck_thresholds = 0;
-	gcheck_thresholds_mutex.unlock();	
-	threshold_checker->join();
 
 	return 0;
 }

@@ -47,9 +47,6 @@ static std::mt19937_64 rnd;
 	#define REFV
 #endif
 
-const bool self_check_threshold = false;
-const uint16_t MAXTHROFFSET = 5; //Maximal difference between wanted and set threshold
-
 std::mutex GetRateMutex;
 
 class dirich 
@@ -69,9 +66,9 @@ private:
 
 	inline int ReadSingleThreshold(uint8_t ichannel, uint16_t &thrvalue);
 	inline int ReadThresholds(std::array<uint16_t,NRCHANNELS>& thrarray);
-	inline int WriteSingleThreshold(uint8_t ichannel, uint16_t thrvalue, bool check, int nof_checks);
-	inline int WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check, int nof_checks);
-	inline int WriteThresholds(uint16_t thrvalue, bool check, int nof_checks);
+	inline int WriteSingleThreshold(uint8_t ichannel, uint16_t thrvalue, bool check);
+	inline int WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check);
+	inline int WriteThresholds(uint16_t thrvalue, bool check);
 	inline int ReadSingleScaler(
 		uint8_t ichannel, 
 		uint32_t &scalervalue, 
@@ -271,10 +268,6 @@ public:
 	bool gTDC_read = false;
 	std::array<uint32_t,NRCHANNELS/(CHPCHAIN*2)> gTDC_setting{{0x0}};
 
-	std::array<uint16_t,NRCHANNELS> gCurrent_Threshold;
-	std::mutex Current_Thr_Mutex;
-	std::chrono::steady_clock::time_point gCurrent_Threshold_time;
-
 };
 
 
@@ -429,105 +422,66 @@ dirich::~dirich()
 
 int dirich::ReadSingleThreshold(uint8_t ichannel, uint16_t& thrvalue)
 {
-	if(self_check_threshold){
-		if (ichannel>NRCHANNELS-1)
-			return -1;
-		int ret;
-		int reg=0;
-		uint8_t real_ichannel=0;
-		if(gdirichver==0){
-			reg=0xa000+31-ichannel; //old firwmare
-		}
-		if(gdirichver==1){
-			reg=0xa000+ichannel; //new firwmare 
-		}
-		if(gdirichver==2){
-			real_ichannel = ichannel%CHPCHAIN+CHPCHAIN;
-		}
-		if(gdirichver==3){
-			real_ichannel = ichannel%CHPCHAIN;
-		}
-		if(gdirichver<=1){
-			uint32_t buffer[2];
-			ret=Ttrb::register_read(gBoardAddress,reg, buffer, 2);
-
-			if((gBoardAddress != buffer[0]) || (ret != 2)) return -1;
-
-			thrvalue=(buffer[1] & 0xffff); 
-			return 0;
-		}	
-		else{
-			uint32_t cmd = 0x0 << 20 | real_ichannel << 24 | thrvalue << 0;
-			//evtl. sind auch mehrere Kanäle auf einmal lesbar.
-			uint32_t c[] = {cmd,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,(uint32_t)ichannel/CHPCHAIN+1,0x10001}; 
-			ret=Ttrb::register_write_mem(gBoardAddress,0xd400,0,c,CHPCHAIN+2);
-			std::this_thread::sleep_for(std::chrono::microseconds(SPICOMDELAY));
-			uint32_t ret_c[2];
-			ret=Ttrb::register_read(gBoardAddress,0xd412,ret_c,2);
-			if((gBoardAddress != ret_c[0]) || (ret != 2)) return -1;
-			thrvalue=(ret_c[1] & 0xffff);
-			if(gdirich_reporting_level>3)
-				std::cout 
-					<< std::hex << gBoardAddress 
-					<< " " << std::dec << (int)ichannel 
-					<< " " << (int)real_ichannel << std::hex 
-					<< " " << ret_c[0] 
-					<< " " << ret_c[1] 
-					<< " " << thrvalue 
-					<< std::endl;
-			return 0;
-		}
+	if (ichannel>NRCHANNELS-1)
+		return -1;
+	int ret;
+	int reg=0;
+	uint8_t real_ichannel=0;
+	if(gdirichver==0){
+		reg=0xa000+31-ichannel; //old firwmare
 	}
+	if(gdirichver==1){
+		reg=0xa000+ichannel; //new firwmare 
+	}
+	if(gdirichver==2){
+		real_ichannel = ichannel%CHPCHAIN+CHPCHAIN;
+	}
+	if(gdirichver==3){
+		real_ichannel = ichannel%CHPCHAIN;
+	}
+	if(gdirichver<=1){
+		uint32_t buffer[2];
+		ret=Ttrb::register_read(gBoardAddress,reg, buffer, 2);
+
+		if((gBoardAddress != buffer[0]) || (ret != 2)) return -1;
+
+		thrvalue=(buffer[1] & 0xffff); 
+		return 0;
+	}	
 	else{
-		auto temp_set_time = std::chrono::steady_clock::now();
-		while(true){
-			Current_Thr_Mutex.lock();
-			if(gCurrent_Threshold_time>temp_set_time) 
-				break;
-			Current_Thr_Mutex.unlock();
-			std::this_thread::sleep_for(std::chrono::microseconds(2*SPICOMDELAY));
-		}		
-		// std::this_thread::sleep_until(
-		// 	gCurrent_Threshold_time
-		// 	+std::chrono::microseconds((NRCHANNELS+1)*SPICOMDELAY)
-		// );
-		thrvalue = gCurrent_Threshold.at(ichannel);
-		Current_Thr_Mutex.unlock();
+		uint32_t cmd = 0x0 << 20 | real_ichannel << 24 | thrvalue << 0;
+		//evtl. sind auch mehrere Kanäle auf einmal lesbar.
+		uint32_t c[] = {cmd,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,(uint32_t)ichannel/CHPCHAIN+1,0x10001}; 
+		ret=Ttrb::register_write_mem(gBoardAddress,0xd400,0,c,CHPCHAIN+2);
+		std::this_thread::sleep_for(std::chrono::microseconds(SPICOMDELAY));
+		uint32_t ret_c[2];
+		ret=Ttrb::register_read(gBoardAddress,0xd412,ret_c,2);
+		if((gBoardAddress != ret_c[0]) || (ret != 2)) return -1;
+		thrvalue=(ret_c[1] & 0xffff);
+		if(gdirich_reporting_level>3)
+			std::cout 
+				<< std::hex << gBoardAddress 
+				<< " " << std::dec << (int)ichannel 
+				<< " " << (int)real_ichannel << std::hex 
+				<< " " << ret_c[0] 
+				<< " " << ret_c[1] 
+				<< " " << thrvalue 
+				<< std::endl;
 		return 0;
 	}
 }
 
 int dirich::ReadThresholds(std::array<uint16_t,NRCHANNELS>& thrarray){
 	int ret=0;
-	if(self_check_threshold){
-		for(uint8_t ichannel=0;ichannel<NRCHANNELS;++ichannel){
-			ret=ReadSingleThreshold(ichannel,thrarray.at(ichannel));
-			// std::cout << std::hex << thrarray.at(ichannel) << std::endl;
-			if(ret<0) return ret;
-		}
-		return ret;
+	for(uint8_t ichannel=0;ichannel<NRCHANNELS;++ichannel){
+		ret=ReadSingleThreshold(ichannel,thrarray.at(ichannel));
+		// std::cout << std::hex << thrarray.at(ichannel) << std::endl;
+		if(ret<0) return ret;
 	}
-	else{
-		auto temp_set_time = std::chrono::steady_clock::now();
-		while(true){
-			Current_Thr_Mutex.lock();
-			if(gCurrent_Threshold_time>temp_set_time) 
-				break;
-			Current_Thr_Mutex.unlock();
-			std::this_thread::sleep_for(std::chrono::microseconds(2*SPICOMDELAY));
-			// std::cout << "NOPE" << std::endl;
-		}		
-		// std::this_thread::sleep_until(
-		// 	gCurrent_Threshold_time
-		// 	+std::chrono::microseconds((NRCHANNELS+1)*SPICOMDELAY)
-		// );		
-		thrarray = gCurrent_Threshold;
-		Current_Thr_Mutex.unlock();
-		return 0;
-	}
+	return ret;
 }
 
-int dirich::WriteSingleThreshold(uint8_t ichannel, uint16_t thrvalue, bool check, int nof_checks)
+int dirich::WriteSingleThreshold(uint8_t ichannel, uint16_t thrvalue, bool check)
 {
 	if (ichannel>NRCHANNELS-1)
 		return -1;
@@ -553,41 +507,12 @@ int dirich::WriteSingleThreshold(uint8_t ichannel, uint16_t thrvalue, bool check
 		if(check){
 			uint32_t temp[18];
 			ret=Ttrb::register_read(gBoardAddress,0xd412, temp,18);
-			if(ret==-1) return ret;
 		}
-		int failed=0;
-		for(failed=0;failed<nof_checks;++failed){
-			uint16_t set_threshold;
-			ret=ReadSingleThreshold(ichannel, set_threshold);
-			if(ret==-1) break;
-			if(gdirich_reporting_level>3) 
-				std::cout 
-					<< "wanted " << thrvalue 
-					<< " set " << set_threshold 
-				<< std::endl;
-			if(abs(set_threshold-thrvalue) < MAXTHROFFSET) break;
-			else{
-				if(gdirich_reporting_level>2) 
-				std::cout 
-					<< "Thresholds not matching: wanted " << thrvalue 
-					<< " set " << set_threshold 
-				<< std::endl;
-			}
-			ret=Ttrb::register_write_mem(gBoardAddress,0xd400,0,c.data(),CHPCHAIN+2);
-			if(ret==-1) break;
-			std::this_thread::sleep_for(std::chrono::microseconds(THRESHDELAY));
-			if(check){
-				uint32_t temp[18];
-				ret=Ttrb::register_read(gBoardAddress,0xd412, temp,18);
-				if(ret==-1) break;
-			}
-		}
-		if(failed==nof_checks-1) return -1;
-		else return ret;
+		return ret;
 	}
 }
 
-int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check, int nof_checks)
+int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check)
 {
 	int ret;
 	std::array<std::array<uint32_t,CHPCHAIN+2>,NRCHANNELS/CHPCHAIN> cmd;
@@ -598,7 +523,6 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 			buffer[i]=thrarray[NRCHANNELS-i-1];
 		}
 		ret=Ttrb::register_write_mem(gBoardAddress,reg,0,buffer,NRCHANNELS);
-		return ret;
 	}
 	else{
 		std::array<uint,NRCHANNELS/CHPCHAIN> counter;
@@ -623,61 +547,18 @@ int dirich::WriteThresholds(std::array<uint16_t,NRCHANNELS> thrarray, bool check
 			if(check){
 				uint32_t temp[18];
 				ret=Ttrb::register_read(gBoardAddress,0xd412, temp,18);
-				if(ret==-1) break;
-			}
-			for(;failed<nof_checks;++failed){
-				std::array<uint16_t, NRCHANNELS> set_thresholds;
-				ret=ReadThresholds(set_thresholds);
-				if(ret==-1) break;
-				int equal_it=0;
-				for(int ichannel=0;ichannel<CHPCHAIN;++ichannel){
-					if(gdirich_reporting_level>3){
-						std::cout 
-							<< thrarray.at(ichannel+CHPCHAIN*ichain) << "/"
-							<< set_thresholds.at(ichannel) << "\t";
-					}
-					if(
-						thrarray.at(ichannel+CHPCHAIN*ichain)==0 
-						|| abs(
-							thrarray.at(ichannel+CHPCHAIN*ichain)
-							-set_thresholds.at(ichannel+CHPCHAIN*ichain)
-							)<MAXTHROFFSET
-						){
-						equal_it++;
-					}
-					else if(gdirich_reporting_level>2){
-						std::cout 
-							<< "Threshold not equal at channel " 
-							<< ichannel << " "
-							<< CHPCHAIN*ichain << " "
-							<< thrarray.at(ichannel+CHPCHAIN*ichain) << "/"
-							<< set_thresholds.at(ichannel+CHPCHAIN*ichain) << std::endl;
-					}
-				}
-				if(gdirich_reporting_level>2) 
-					std::cout << std::endl;
-				if(equal_it==CHPCHAIN) break;
-				ret=Ttrb::register_write_mem(gBoardAddress,0xd400,0,cmd.at(ichain).data(),CHPCHAIN+2);
-				if(ret==-1) break;
-				std::this_thread::sleep_for(std::chrono::microseconds(THRESHDELAY));
-				if(check){
-					uint32_t temp[18];
-					ret=Ttrb::register_read(gBoardAddress,0xd412, temp,18);
-					if(ret==-1) break;
-				}
 			}
 		}
-		if(failed==nof_checks-1) return -1;
-		else return ret;
 	}
+	return ret;
 }
 
-int dirich::WriteThresholds(uint16_t thrvalue, bool check, int nof_checks)
+int dirich::WriteThresholds(uint16_t thrvalue, bool check)
 {
 	int ret;
 	std::array<uint16_t,NRCHANNELS> thrarray;
 	thrarray.fill(thrvalue);
-	ret=WriteThresholds(thrarray, check, nof_checks);
+	ret=WriteThresholds(thrarray, check);
 	return ret;
 }
 
@@ -699,7 +580,7 @@ void dirich::SetSingleThresholdmV(uint8_t ichannel ,double thrinmV=30.)
 	} 
 	int newthreshold = thrinmV==0 ? 0 : baseline+forientation.at(ichannel)*Thr_mVtoD(thrinmV);
 
-	int ret=WriteSingleThreshold(ichannel, newthreshold, true, 100);
+	int ret=WriteSingleThreshold(ichannel, newthreshold, true);
 	if(ret<0){
 			std::cerr 
 			<< "dirich 0x" << std::hex << gBoardAddress 
@@ -735,7 +616,7 @@ void dirich::SetThresholdsmV(std::array<double,NRCHANNELS> thrarrayinmV)
 		}
 	}
 	int ret=0;
-	ret=WriteThresholds(thrarrayD, true, 100);
+	ret=WriteThresholds(thrarrayD, true);
 	if(ret<0){
 	 std::cerr 
 	 	<< "dirich 0x" << std::hex << gBoardAddress 
@@ -766,7 +647,7 @@ void dirich::SetPattern(long pattern)
 		0 : OFFTHRESH_low;
 	}
 	int ret=0;
-	ret=WriteThresholds(thresholdvals, true, 100);
+	ret=WriteThresholds(thresholdvals, true);
 	if(ret<0){
 		std::cerr 
 			<< "dirich 0x" << std::hex << gBoardAddress 
@@ -1055,7 +936,7 @@ void dirich::DoThreshScan(
 	SetTDCSetting(0x0); //SwitchTDC off
 
 	for(int ipass=0;ipass<NrPasses;++ipass){
-		ret=WriteThresholds(OFFTHRESH_low, true, 0);
+		ret=WriteThresholds(OFFTHRESH_low, true);
 		if(ret<0){
 		 std::cerr 
 		 	<< "dirich 0x" 
@@ -1084,7 +965,7 @@ void dirich::DoThreshScan(
 				(ichannel+ipass)%NrPasses==0 ? 
 				FromThr.at(ichannel)+addthresh : 0;
 			}
-			ret=WriteThresholds(threshold_value, true, 0);
+			ret=WriteThresholds(threshold_value, true);
 			if(ret<0){
 			 std::cerr 
 			 	<< "dirich 0x" 
@@ -1175,7 +1056,7 @@ void dirich::DoThreshScanOverBase(
 	SetTDCSetting(0x0); //SwitchTDC off
 
 	for(int ipass=0;ipass<NrPasses;++ipass){
-		ret=WriteThresholds(OFFTHRESH_low, true, 100);
+		ret=WriteThresholds(OFFTHRESH_low, true);
 		if(ret<0){
 		 std::cerr 
 		 	<< "dirich 0x" << std::hex << gBoardAddress 
@@ -1209,7 +1090,7 @@ void dirich::DoThreshScanOverBase(
 					)
 				) : 0;
 			}
-			ret=WriteThresholds(threshold_value, true, 100);
+			ret=WriteThresholds(threshold_value, true);
 			if(ret<0){
 			 std::cerr 
 			 	<< "dirich 0x" << std::hex << gBoardAddress 

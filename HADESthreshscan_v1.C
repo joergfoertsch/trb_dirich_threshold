@@ -1098,7 +1098,7 @@ void set_pattern(std::shared_ptr<dirich> dirichptr, uint32_t pattern=4294967295)
 	}
 }
 
-void measure_rate(std::shared_ptr<dirich>	dirichptr, std::string filename, double measure_time)
+void measure_rate(std::shared_ptr<dirich> dirichptr, std::string filename, double measure_time)
 {
 	if(dirichptr==NULL){
 		std::ofstream file;
@@ -1123,6 +1123,7 @@ void measure_rate(std::shared_ptr<dirich>	dirichptr, std::string filename, doubl
 			for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
 				file
 					<< std::hex << one_rates.first << std::dec << "\t" 
+					<< std::hex << dirichlist.at(one_rates.first)->GetBoardUID() << std::dec << "\t" 
 					<< ichannel << "\t" 
 					<< temp_rate_arr[ichannel] << "\t" 
 					<< sqrt(temp_rate_arr[ichannel])/sqrt(measure_time) << "\t" 
@@ -1144,7 +1145,8 @@ void measure_rate(std::shared_ptr<dirich>	dirichptr, std::string filename, doubl
 			<< std::endl;
 		for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
 			file
-				<< std::hex << dirichptr->GetBoardAddress() << std::dec << "\t" 
+				<< std::hex << dirichptr->GetBoardAddress() << std::dec << "\t"
+				<< std::hex << dirichptr->GetBoardUID() << std::dec << "\t"
 				<< ichannel << "\t" 
 				<< rates[ichannel] << "\t" 
 				<< sqrt(rates[ichannel])/sqrt(measure_time) << "\t" 
@@ -1179,6 +1181,7 @@ void measure_trigger_rate(std::shared_ptr<dirich> dirichptr, std::string filenam
 			double temp_rate = one_rate.second.get();
 			file
 				<< std::hex << one_rate.first << std::dec << "\t" 
+				<< std::hex << dirichlist.at(one_rate.first)->GetBoardUID() << std::dec << "\t" 
 				<< temp_rate << "\t" 
 				<< sqrt(temp_rate)/sqrt(measure_time) << "\t" 
 				<< std::endl;
@@ -1198,6 +1201,7 @@ void measure_trigger_rate(std::shared_ptr<dirich> dirichptr, std::string filenam
 			<< std::endl;
 		file
 			<< std::hex << dirichptr->GetBoardAddress() << std::dec << "\t" 
+			<< std::hex << dirichptr->GetBoardUID() << std::dec << "\t" 
 			<< rate << "\t" 
 			<< sqrt(rate)/sqrt(measure_time) << "\t" 
 			<< std::endl;
@@ -1225,8 +1229,8 @@ void save_base(std::shared_ptr<dirich>	dirichptr, std::string filename, bool app
 				<< "%" << std::flush;
 			file 
 				<< "# Scan-Settings for 0x" 
-				<< std::hex << dirichlistitem.first 
-				<< std::dec 
+				<< std::hex << dirichlistitem.first << "\t"
+				<< std::hex << dirichlistitem.second->GetBoardUID() 
 				<< "\n# gMeasureTime\tgLowerEdge(0)\tgUpperEdge(0)\tgStepsize\tgNrPasses\tgMeasureTime_over"
 					"\tgUpperEdge_over\tgStepsize_over\tgNrPasses_over" 
 				<< std::endl;
@@ -1247,7 +1251,8 @@ void save_base(std::shared_ptr<dirich>	dirichptr, std::string filename, bool app
 				<< std::endl;
 			for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
 				file
-					<< std::hex << dirichlistitem.first << std::dec << "\t" 
+					<< std::hex << dirichlistitem.first << std::dec << "\t"
+					<< std::hex << dirichlistitem.second->GetBoardUID() << std::dec << "\t"
 					<< ichannel << "\t" 
 					<< dirichlistitem.second->GetSingleBaseline(ichannel) << "\t" 
 					<< dirich::Thr_DtomV(dirichlistitem.second->GetSingleNoisewidth(ichannel)) << "\t" 
@@ -1260,8 +1265,9 @@ void save_base(std::shared_ptr<dirich>	dirichptr, std::string filename, bool app
 	}
 	else{
 		file 
-			<< "# Scan-Settings for 0x" << std::hex << dirichptr->GetBoardAddress() 
-			<< std::dec 
+			<< "# Scan-Settings for 0x" 
+			<< std::hex << dirichptr->GetBoardAddress() << "\t"
+			<< std::hex << dirichptr->GetBoardUID() 
 			<< "\n# gMeasureTime\tgLowerEdge(0)\tgUpperEdge(0)\tgStepsize\tgNrPasses\tgMeasureTime_over"
 				"\tgUpperEdge_over\tgStepsize_over\tgNrPasses_over" 
 			<< std::endl;
@@ -1283,6 +1289,7 @@ void save_base(std::shared_ptr<dirich>	dirichptr, std::string filename, bool app
 		for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
 			file
 			<< std::hex << dirichptr->GetBoardAddress() << std::dec << "\t" 
+			<< std::hex << dirichptr->GetBoardUID() << std::dec << "\t" 
 			<< ichannel << "\t" 
 			<< dirichptr->GetSingleBaseline(ichannel) << "\t" 
 			<< dirich::Thr_DtomV(dirichptr->GetSingleNoisewidth(ichannel)) << "\t" 
@@ -1301,6 +1308,7 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 {
 	std::string dirichaddress_string="";
 	uint16_t dirichaddress=0;
+	uint64_t dirichuid=0;
 	int channel=0;
 	int baseline=0;
 	double width=0;
@@ -1330,12 +1338,13 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 				continue;
 			}
 			// if(dirichaddress_string=="") continue;
-			iss >> channel >> baseline >> width >> thresholdinmV;
+			iss >> std::hex >> dirichuid >> std::dec >> channel >> baseline >> width >> thresholdinmV;
 			if(iss.tellg()!=-1) 
 				std::cerr 
 					<< "Error reading line:\n" << line 
 					<< "\nRead in:" 
 					<< "\ndirichaddress:0x" << dirichaddress_string 
+					<< "\ndirichUID:0x" << dirichuid 
 					<< "\nchannel:" << channel 
 					<< "\nbaseline:" << baseline 
 					<< "\nwidth:" << width 
@@ -1344,32 +1353,43 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 			else{
 				dirichaddress = (uint16_t)stoi(dirichaddress_string,0,16);
 				if(dirichlist.count(dirichaddress)!=0){
-					if(set_base!=0){
-						dirichlist.at(dirichaddress)->SetSingleBaseline_old(
-							channel, 
-							dirichlist.at(dirichaddress)->GetSingleBaseline(channel)
-						);
-						dirichlist.at(dirichaddress)->SetSingleBaseline(
-							channel, 
-							baseline
-						);
+					if(dirichlist.at(dirichaddress)->GetBoardUID() == dirichuid) {
+						if(set_base!=0){
+							dirichlist.at(dirichaddress)->SetSingleBaseline_old(
+								channel, 
+								dirichlist.at(dirichaddress)->GetSingleBaseline(channel)
+							);
+							dirichlist.at(dirichaddress)->SetSingleBaseline(
+								channel, 
+								baseline
+							);
 
-						dirichlist.at(dirichaddress)->SetSingleNoisewidth_old(
-							channel, 
-							dirichlist.at(dirichaddress)->GetSingleNoisewidth(channel)
-						);
-						dirichlist.at(dirichaddress)->SetSingleNoisewidth(
-							channel, 
-							dirich::Thr_mVtoD(width)
-						);
-					}
-					if(set_thr!=0){
-						if(thresholds.find(dirichaddress)==thresholds.end()){
-							std::array <double,32> temp_array;
-							temp_array.fill(0);
-							thresholds.insert(std::make_pair(dirichaddress,temp_array));
+							dirichlist.at(dirichaddress)->SetSingleNoisewidth_old(
+								channel, 
+								dirichlist.at(dirichaddress)->GetSingleNoisewidth(channel)
+							);
+							dirichlist.at(dirichaddress)->SetSingleNoisewidth(
+								channel, 
+								dirich::Thr_mVtoD(width)
+							);
 						}
-						thresholds.at(dirichaddress).at(channel) = thresholdinmV;
+						if(set_thr!=0){
+							if(thresholds.find(dirichaddress)==thresholds.end()){
+								std::array <double,32> temp_array;
+								temp_array.fill(0);
+								thresholds.insert(std::make_pair(dirichaddress,temp_array));
+							}
+							thresholds.at(dirichaddress).at(channel) = thresholdinmV;
+						}
+					}
+					else{
+						std::cerr 
+							<< "dirich 0x" 
+							<< std::hex << dirichaddress 
+							<< std::dec << " features different UID compared to the one in the load-file:\n"
+							<< std::hex << "Load:" << dirichuid << " System:" << dirichlist.at(dirichaddress)->GetBoardUID()
+							<< std::endl;
+						continue;
 					}
 				}
 				else{ 
@@ -1424,12 +1444,13 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 				std::getline(iss,dummy);
 				continue;
 			}
-			iss >> channel >> baseline >> width >> thresholdinmV;
+			iss >> std::hex >> dirichuid >> std::dec >> channel >> baseline >> width >> thresholdinmV;
 			if(iss.tellg()!=-1) 
 				std::cerr 
 					<< "Error reading line:\n" << line 
 					<< "\nRead in:" 
 					<< "\ndirichaddress:0x" << dirichaddress_string 
+					<< "\ndirichUID:0x" << dirichuid 
 					<< "\nchannel:" << channel 
 					<< "\nbaseline:" << baseline 
 					<< "\nwidth:" << width 
@@ -1487,13 +1508,14 @@ void load_base(std::shared_ptr<dirich>	dirichptr,
 				std::getline(iss,dummy);
 				continue;
 			}
-			iss >> channel >> baseline >> width >> thresholdinmV;
+			iss >> std::hex >> dirichuid >> std::dec >> channel >> baseline >> width >> thresholdinmV;
 			dirichaddress = (uint16_t)stoi(dirichaddress_string,0,16);
 			if(iss.tellg()!=-1) 
 				std::cerr 
 					<< "Error reading line:\n" << line 
 					<< "\nRead in:" 
 					<< "\ndirichaddress:0x" << dirichaddress_string 
+					<< "\ndirichUID:0x" << dirichuid 
 					<< "\nchannel:" << channel 
 					<< "\nbaseline:" << baseline 
 					<< "\nwidth:" << width 

@@ -1116,7 +1116,7 @@ void measure_rate(std::shared_ptr<dirich> dirichptr, std::string filename, doubl
 		}
 		for(auto& one_rates : rates){
 			file 
-				<< "# Scan-Data\n# dirich\tchannel\trate\terror\t" 
+				<< "# Scan-Data\n# dirich\tdirichUID\tchannel\trate\terror\t" 
 				<< std::endl;
 				one_rates.second.wait();
 			double* temp_rate_arr = one_rates.second.get();
@@ -1141,7 +1141,7 @@ void measure_rate(std::shared_ptr<dirich> dirichptr, std::string filename, doubl
 		double* rates = dirichptr->GetRates(measure_time);
 
 		file 
-			<< "# Scan-Data\n# dirich\tchannel\trate\terror\t" 
+			<< "# Scan-Data\n# dirich\tdirichUID\tchannel\trate\terror\t" 
 			<< std::endl;
 		for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
 			file
@@ -1174,7 +1174,7 @@ void measure_trigger_rate(std::shared_ptr<dirich> dirichptr, std::string filenam
 			));
 		}
 		file 
-			<< "# Trigger Scalar Rate\n# dirich\trate\terror"
+			<< "# Trigger Scalar Rate\n# dirich\tdirichUID\trate\terror"
 			<< std::endl;
 		for(auto& one_rate : rate){
 			one_rate.second.wait();
@@ -1197,7 +1197,7 @@ void measure_trigger_rate(std::shared_ptr<dirich> dirichptr, std::string filenam
 		double rate = dirichptr->GetSingleRate(measure_time, 0);
 
 		file 
-			<< "# Trigger Scalar Rate\n# dirich\trate\terror"
+			<< "# Trigger Scalar Rate\n# dirich\tdirichUID\trate\terror"
 			<< std::endl;
 		file
 			<< std::hex << dirichptr->GetBoardAddress() << std::dec << "\t" 
@@ -1247,7 +1247,7 @@ void save_base(std::shared_ptr<dirich>	dirichptr, std::string filename, bool app
 				<< "\t" << dirichlistitem.second->gNrPasses_over 
 				<< std::endl;
 			file 
-				<< "# Scan-Data\n# dirich\tchannel\tbaseline\twidth in mV\tthreshold in mV over baseline" 
+				<< "# Scan-Data\n# dirich\tdirichUID\tchannel\tbaseline\twidth in mV\tthreshold in mV over baseline" 
 				<< std::endl;
 			for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
 				file
@@ -1284,7 +1284,7 @@ void save_base(std::shared_ptr<dirich>	dirichptr, std::string filename, bool app
 			<< "\t" << dirichptr->gNrPasses_over 
 			<< std::endl;
 		file 
-			<< "# Scan-Data\n# dirich\tchannel\tbaseline\twidth in mV\tthreshold in mV over baseline" 
+			<< "# Scan-Data\n# dirich\tdirichUID\tchannel\tbaseline\twidth in mV\tthreshold in mV over baseline" 
 			<< std::endl;
 		for (int ichannel=0; ichannel<NRCHANNELS; ichannel++) {
 			file
